@@ -172,7 +172,8 @@ export function createApp(deps: AppDeps): AppContainer {
 
   // ---- CORS (before body parsing so error responses carry CORS headers)
   const corsForPublic = publicCors(env.CORS_PUBLIC_ORIGINS);
-  const corsForAdmin = adminCors(env.CORS_ADMIN_ORIGINS);
+  const adminOrigins = { origins: env.CORS_ADMIN_ORIGINS, allowLan: env.DEV_ALLOW_LAN_ORIGINS };
+  const corsForAdmin = adminCors(adminOrigins);
   app.use('/api', (req, res, next) =>
     (req.path.startsWith('/v1/public') ? corsForPublic : corsForAdmin)(req, res, next),
   );
@@ -202,7 +203,7 @@ export function createApp(deps: AppDeps): AppContainer {
     controller: authController,
     authenticate: authMiddleware,
     authLimiter: authLimiter(env.RATE_LIMIT_AUTH_PER_15MIN),
-    originGuard: requireAllowedOrigin(env.CORS_ADMIN_ORIGINS),
+    originGuard: requireAllowedOrigin(adminOrigins),
     docs,
   });
   const imageUploads = imageUpload({ maxMb: env.UPLOAD_MAX_IMAGE_MB, maxFiles: MAX_PRODUCT_IMAGES });

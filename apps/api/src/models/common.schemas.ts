@@ -45,6 +45,7 @@ export const actorSchema = new Schema(
 );
 
 export const integerValidator = {
-  validator: Number.isInteger,
+  // Empty optional values (null/undefined) are allowed; `required` handles presence.
+  validator: (v: unknown) => v === null || v === undefined || Number.isInteger(v),
   message: '{PATH} must be an integer',
 };

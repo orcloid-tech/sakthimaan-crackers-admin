@@ -36,6 +36,8 @@ const envSchema = z
     CORS_ADMIN_ORIGINS: csv,
     /** Customer website origins (public namespace only, no credentials). */
     CORS_PUBLIC_ORIGINS: csv,
+    /** Development: also accept the admin from private-network addresses (phone testing over Wi-Fi). */
+    DEV_ALLOW_LAN_ORIGINS: bool.optional(),
     /** Base URL of the admin app, used in password-reset links. */
     ADMIN_APP_URL: z.url(),
 
@@ -122,6 +124,13 @@ const envSchema = z
       if (env.COOKIE_SECURE === false) {
         ctx.addIssue({ code: 'custom', path: ['COOKIE_SECURE'], message: 'Must be true in production' });
       }
+      if (env.DEV_ALLOW_LAN_ORIGINS === true) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['DEV_ALLOW_LAN_ORIGINS'],
+          message: 'Not allowed in production',
+        });
+      }
       if (env.CORS_ADMIN_ORIGINS.length === 0) {
         ctx.addIssue({ code: 'custom', path: ['CORS_ADMIN_ORIGINS'], message: 'Required in production' });
       }
@@ -170,6 +179,7 @@ const envSchema = z
     API_DOCS_ENABLED: env.API_DOCS_ENABLED ?? env.NODE_ENV !== 'production',
     isProduction: env.NODE_ENV === 'production',
     isTest: env.NODE_ENV === 'test',
+    DEV_ALLOW_LAN_ORIGINS: env.DEV_ALLOW_LAN_ORIGINS ?? env.NODE_ENV === 'development',
   }));
 
 export type Env = z.output<typeof envSchema>;

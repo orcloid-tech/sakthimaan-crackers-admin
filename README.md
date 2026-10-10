@@ -10,7 +10,7 @@ Architecture, data model, endpoints and RBAC matrix: [docs/ARCHITECTURE.md](docs
 ```
 packages/shared   enums, RBAC, pricing/GST, numbering, zod schemas (used by API and admin UI)
 apps/api          Express 5 + Mongoose API
-apps/admin        React admin panel (phase 6)
+apps/admin        React admin panel (Vite, Tailwind, shadcn/ui)
 docs/templates    product import template (CSV + Excel) and a guide to send to the client
 ```
 
@@ -35,14 +35,26 @@ npm install
 cp apps/api/.env.example apps/api/.env
 #   edit apps/api/.env: set MONGODB_URI (step 1) and JWT_ACCESS_SECRET
 #   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
-npm run db:indexes -w @sakthimaan/api                 # create indexes (first run / after schema changes)
-SUPERADMIN_EMAIL=you@example.com SUPERADMIN_NAME="Your Name" SUPERADMIN_PASSWORD='a-long-passphrase-123' \
-  npm run create-super-admin -w @sakthimaan/api
-npm run dev -w @sakthimaan/api                        # http://localhost:4000, API docs at /api/docs
+npm run seed -- --reset      # sample data + one user per role (wipes the database; never in production)
+npm run dev                  # API on http://localhost:4000 (docs at /api/docs) + admin on http://localhost:5173
 ```
 
-On Windows PowerShell, set the three `SUPERADMIN_*` variables with `$env:SUPERADMIN_EMAIL="..."` first,
-or put them in `apps/api/.env` temporarily.
+Open http://localhost:5173 and sign in with any seeded user. The password for all of them is `Sakthimaan@2026`:
+
+| Role              | Email                       | Sees / can do                                                     |
+| ----------------- | --------------------------- | ----------------------------------------------------------------- |
+| Super Admin       | `super@sakthimaan.test`     | Everything                                                        |
+| Admin             | `admin@sakthimaan.test`     | Everything except company/tax settings                            |
+| Staff (Orders)    | `orders@sakthimaan.test`    | Catalogue read-only, orders (coming), customers                   |
+| Staff (Inventory) | `inventory@sakthimaan.test` | Products (new ones are **drafts** until approved), stock, batches |
+| Viewer            | `viewer@sakthimaan.test`    | Read-only                                                         |
+
+For a real (empty) database, create the first account instead of seeding:
+`SUPERADMIN_EMAIL=… SUPERADMIN_NAME=… SUPERADMIN_PASSWORD=… npm run create-super-admin -w @sakthimaan/api`
+(on PowerShell set them with `$env:SUPERADMIN_EMAIL="..."` first), then `npm run db:indexes -w @sakthimaan/api`.
+
+The admin needs no configuration in development: Vite proxies `/api` to the API, so both are same-origin.
+In production, build it with `VITE_API_URL=https://api.<domain>` (see `apps/admin/.env.example`).
 
 Tests need no database setup: `npm test` starts an in-memory replica set.
 
@@ -74,10 +86,12 @@ option and is all the refresh flow needs).
 
 | Command                                                 | What it does                                                             |
 | ------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `npm run dev`                                           | API (:4000) and admin (:5173) together                                   |
+| `npm run seed -- --reset`                               | Wipe and load sample data with one user per role (refuses production)    |
 | `npm test`                                              | All tests (in-memory MongoDB replica set; nothing to install)            |
 | `npm run typecheck` / `npm run lint` / `npm run format` | Type check, ESLint, Prettier                                             |
 | `npm run check`                                         | Lint + format check + typecheck + tests (what CI will run)               |
-| `npm run build`                                         | Build shared + API to `dist/`                                            |
+| `npm run build`                                         | Build shared, API and admin (`apps/*/dist`)                              |
 | `npm run db:indexes -w @sakthimaan/api`                 | Sync MongoDB indexes (run on every deploy; production has autoIndex off) |
 | `npm run db:local -w @sakthimaan/api`                   | Offline local MongoDB replica set (dev fallback)                         |
 | `npm run templates -w @sakthimaan/api`                  | Regenerate docs/templates from the shared import column definitions      |

@@ -12,7 +12,8 @@
     "create-super-admin": "tsx --conditions=source --env-file-if-exists=.env src/scripts/create-super-admin.ts",
     "db:indexes": "tsx --conditions=source --env-file-if-exists=.env src/scripts/sync-indexes.ts",
     "db:local": "tsx src/scripts/local-db.ts",
-    "templates": "tsx --conditions=source src/scripts/generate-templates.ts"
+    "templates": "tsx --conditions=source src/scripts/generate-templates.ts",
+    "seed": "tsx --conditions=source --env-file-if-exists=.env src/scripts/seed.ts"
   },
   "dependencies": {
     "@sakthimaan/shared": "0.1.0",

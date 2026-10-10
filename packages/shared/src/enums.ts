@@ -114,6 +114,7 @@ export const AUDIT_ACTIONS = [
   'pack_unpaid', // confirmed → packed before payment (credit customer)
   'credit_change', // customer creditAllowed toggled
   'issue', // invoice / credit note issued
+  'activate', // draft product made live (needs price authority)
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

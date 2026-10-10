@@ -411,3 +411,52 @@ Categories, products, gift boxes, inventory, bulk pricing, image storage, CSV/Ex
 - **Products:** net price, tax inheritance, opening-stock ledger, duplicate SKU, validation, search/filter/sort/paging, regex-safe search, version conflict, strict detail edits, price permission and audit, bulk preview/apply, MRP ±% rounding, **bulk rollback on a concurrent edit**, gift box suggestion/creation/nesting/delete guard, soft delete/restore/SKU clash, image upload/resize/reject/reorder/remove/limit.
 - **Inventory:** in/out/adjust with chained ledger and audit, cursor paging, never negative, **concurrent stock-outs**, stale adjustment, validation and permissions, FIFO batches, OPENING batch, low stock, pending demand.
 - **Import/export:** template drift, Excel template dropdowns, template passes dry run, row-level errors, all-or-nothing 422, creates + updates + categories + opening stock + audit in one go, idempotent re-import, Excel and `;` CSV with BOM, file type and permissions, CSV injection plus a clean round trip, Excel export, multi-page PDF, PDF permission.
+
+---
+
+## 10. Admin UI (frontend foundation + catalogue screens)
+
+The plan changed after Phase 3: the UI is built now, then each module is built API + UI together. Orders/Enquiries is next.
+
+### Stack and structure
+
+React 19 · Vite · TypeScript (strict) · Tailwind CSS v4 · shadcn/ui (Radix, "Nova" preset, saffron brand colour) · React Router v6 · TanStack Query · TanStack Table v8 · Zustand · React Hook Form + Zod.
+
+```
+apps/admin/src/
+  app/App.tsx            router (lazy-loaded pages), query client, providers
+  lib/                   api client, session (single-flight refresh), format, download, theme
+  components/            layout (shell, permission-aware nav), guards, common UI, confirm dialog
+  components/ui/         shadcn/ui (generated; excluded from lint/format)
+  features/<module>/     pages + components; features/catalog/api.ts holds the query hooks
+```
+
+### Decisions
+
+| Topic                     | Decision                                                                                                                                                                                                                                                                                                                                                                    | Why                                                                                                                                                  |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| React 19 (spec said 18)   | The current shadcn/ui components pass `ref` as a normal prop, which React 18 silently drops. That breaks Radix focus handling in dialogs and menus.                                                                                                                                                                                                                         | Keeps shadcn's maintained components as they are. React Router stays on v6 as specified, with the v7 future flags on so a later upgrade is painless. |
+| Session                   | The access token is held **in memory only** (Zustand). On load, the app restores the session through `POST /auth/refresh` using the httpOnly cookie.                                                                                                                                                                                                                        | An XSS bug cannot read a long-lived credential from storage.                                                                                         |
+| **Single-flight refresh** | A 401 triggers one refresh shared by all concurrent requests in the tab, serialised **across tabs with the Web Locks API**. A tab that waited reuses a token another tab already obtained, received over **BroadcastChannel**. Logout and session changes are broadcast to every tab. Without Web Locks it falls back to in-tab dedupe plus the server's 30 s grace window. | Verified in a headless browser: two tabs refreshing at the same moment both stay signed in.                                                          |
+| Shared logic              | Forms validate with the same Zod rules as the API. The net-price/GST preview uses the shared `computeNetPrice`, `resolveTax` and `splitInclusiveGst`, so the preview equals what the API stores. Field errors from the API (`details[].path`) land on the matching input.                                                                                                   | No second implementation of pricing rules.                                                                                                           |
+| Permissions in the UI     | The nav, buttons and pages are gated by the user's permissions (`useAuth().can`, `<Can>`, `<RequirePermission>`). Price fields are read-only without `products:update_price`. A draft's "Active" switch is locked for users who can't approve prices. The API remains the enforcement point.                                                                                | Each role sees only what it can do. Unbuilt modules show as "Soon" so the roadmap is visible.                                                        |
+| Draft rule (API)          | Products created by a user without `products:update_price` are saved **inactive (draft)**. Only a user with that permission can activate them, and activation is audited as `activate` with the approved price.                                                                                                                                                             | As requested. Staff can add products without publishing prices.                                                                                      |
+| Concurrency in the UI     | Edits send the product `version`. On `VERSION_CONFLICT` a toast offers "Reload". Stock adjustments send the `stockVersion` shown.                                                                                                                                                                                                                                           | Two staff editing over the phone don't silently overwrite each other.                                                                                |
+| Phones                    | Responsive layout. The sidebar becomes a drawer, and on small screens the products list is a card list (desktop keeps the table). On touch screens, inputs, selects and buttons get ≥44 px tap targets. Dark/light/system theme.                                                                                                                                            | Staff work on phones during the season.                                                                                                              |
+| Performance               | Each screen is a lazily loaded chunk. Initial JS is about 99 KB gzipped (it was 268 KB before splitting). Lists use server-side paging, `keepPreviousData` and debounced search.                                                                                                                                                                                            | Fast on mobile data.                                                                                                                                 |
+| Accessibility             | Labelled inputs with error text announced, a skip link, focus rings, `aria-pressed` toggles, `aria-live` price preview, keyboard-reachable reorder buttons (no drag-only actions), and confirmation dialogs for destructive actions.                                                                                                                                        | Spec requirement.                                                                                                                                    |
+
+### Screens
+
+- **Sign in, forgot/reset password**, plus a 2FA step for when a provider exists.
+- **Dashboard:** live counts for active products, drafts waiting for approval, low stock, and products short for enquiries. Revenue and order cards are placeholders for the Orders module.
+- **Categories:** tree, create/edit dialog (parent, slug, HSN/GST overrides, visibility), up/down reorder, image upload, guarded delete.
+- **Products:** table with search, category, status (active/draft/deleted) and sort filters, low-stock toggle, and server paging. Create/edit form with live net-price and GST preview, separate details and price saves, image upload with drag-and-drop, set-as-cover and reorder, soft delete and restore.
+- **Bulk price change:** choose categories, set a discount or adjust MRP by %, preview every row before → after, apply all or nothing.
+- **Gift box builder:** product picker, quantities, live price suggestion with an extra bundle discount, "use suggestion", own stock.
+- **Inventory:** low stock, pending enquiry demand (with "short by"), movements ledger (infinite scroll), a per-product ledger, and a stock in/out/set-count dialog (batch-aware).
+- **Import & export:** Excel/CSV template download, drag-and-drop upload, **check report by row and column**, then import. Excel/CSV export. Price list PDF (opens in a new tab).
+
+### Seed data (`npm run seed -- --reset`)
+
+One user per role (password `Sakthimaan@2026`), store settings (GSTIN, licence, UPI/bank), Diwali 2025/2026 seasons, zones, serviceable states and transport partners. Also 10 categories (16 including sub-categories), 49 products with realistic MRP and discounts (green flags, sound levels, a few low or out of stock, 2 drafts, 1 batch-tracked product), 4 gift boxes, 10 customers in TN/KA/KL/AP/TS/PY, and 14 orders across every status. Confirmed orders deducted stock through the inventory service, so ledgers reconcile.

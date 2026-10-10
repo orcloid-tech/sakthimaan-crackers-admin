@@ -18,5 +18,6 @@ export function createStorage(env: Env): StorageProvider {
       env.CLOUDINARY_FOLDER,
     );
   }
-  return new LocalStorage(env.LOCAL_UPLOAD_DIR, env.PUBLIC_API_URL ?? `http://localhost:${env.PORT}`);
+  // No PUBLIC_API_URL: relative /uploads URLs, served through the admin's dev proxy (works on a phone over Wi-Fi too).
+  return new LocalStorage(env.LOCAL_UPLOAD_DIR, env.PUBLIC_API_URL ?? '');
 }

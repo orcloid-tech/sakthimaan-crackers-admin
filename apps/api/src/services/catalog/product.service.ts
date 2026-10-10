@@ -16,6 +16,9 @@ import {
   type ProductPriceInput,
   type ProductUpdateInput,
   type ReorderInput,
+  type Role,
+  hasPermission,
+  ROLES,
 } from '@sakthimaan/shared';
 import type { RequestMeta } from '../../middlewares/request-context.js';
 import {
@@ -31,7 +34,7 @@ import {
   comboProductLookup,
   pendingDemandFor,
 } from '../../repositories/catalog.repository.js';
-import { AppError, badRequest, conflict, notFound } from '../../utils/app-error.js';
+import { AppError, badRequest, conflict, forbidden, notFound } from '../../utils/app-error.js';
 import { containsRegex, oid, slugify } from '../../utils/query.js';
 import { withTransaction } from '../../utils/transaction.js';
 import { diffFields, type AuditActor, type AuditService } from '../audit.service.js';
@@ -141,6 +144,8 @@ export class ProductService {
     );
     const comboItems = input.type === 'combo' ? await this.validateComboItems(input.comboItems ?? []) : [];
     const lowStockThreshold = input.lowStockThreshold ?? (await this.deps.settings.lowStockDefault());
+    // Prices set by someone without price authority stay hidden until approved.
+    const isDraft = !canSetPrices(actor);
     const slug = input.slug ?? (await this.uniqueSlug(slugify(input.name)));
 
     const id = await withTransaction(async (session) => {
@@ -170,7 +175,7 @@ export class ProductService {
             minAge: input.minAge ?? undefined,
             safetyWarning: input.safetyWarning,
             comboItems,
-            isActive: input.isActive ?? true,
+            isActive: isDraft ? false : (input.isActive ?? true),
             isFeatured: input.isFeatured ?? false,
             sortOrder: input.sortOrder ?? 0,
             createdBy: actor.user ? oid(actor.user) : undefined,
@@ -206,6 +211,9 @@ export class ProductService {
             discountPct: doc.discountPct,
             netPrice: doc.netPrice,
             openingStock: input.openingStock,
+            ...(isDraft
+              ? { draft: true, reason: 'Created without products:update_price; needs approval' }
+              : {}),
           },
         },
         meta,
@@ -269,6 +277,12 @@ export class ProductService {
       'isFeatured',
       'sortOrder',
     ] as const;
+    const activating = input.isActive === true && !doc.isActive;
+    if (activating && !canSetPrices(actor)) {
+      throw forbidden('Only users who can change prices can activate a product (its price needs approval)', {
+        missing: ['products:update_price'],
+      });
+    }
     for (const key of simple) {
       if (input[key] !== undefined) doc.set(key, input[key]);
     }
@@ -302,7 +316,20 @@ export class ProductService {
         );
       }
       await this.deps.audit.record(
-        { actor, action: 'update', entity: 'product', entityId: id, entityLabel: doc.sku, changes },
+        {
+          actor,
+          action: activating ? 'activate' : 'update',
+          entity: 'product',
+          entityId: id,
+          entityLabel: doc.sku,
+          changes,
+          ...(activating
+            ? {
+                summary: 'Activated',
+                meta: { mrp: doc.mrp, discountPct: doc.discountPct, netPrice: doc.netPrice },
+              }
+            : {}),
+        },
         meta,
         session,
       );
@@ -731,4 +758,10 @@ export class ProductService {
     }
     return `${root}-${Date.now()}`;
   }
+}
+
+/** Whether the acting user may set prices (drafts and activation depend on it). */
+function canSetPrices(actor: AuditActor): boolean {
+  const role = actor.role as Role | undefined;
+  return role !== undefined && ROLES.includes(role) && hasPermission(role, 'products:update_price');
 }

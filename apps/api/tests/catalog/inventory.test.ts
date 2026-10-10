@@ -188,8 +188,10 @@ describe('batches (optional lot tracking)', () => {
 
 describe('alerts and demand', () => {
   it('lists low-stock products', async () => {
-    const low = await makeProduct(staff, catId, { openingStock: 2, lowStockThreshold: 5 });
-    await makeProduct(staff, catId, { openingStock: 50, lowStockThreshold: 5 });
+    // Created by an admin: products created by inventory staff are drafts (inactive) until approved.
+    const admin = await signedIn(app, 'admin');
+    const low = await makeProduct(admin, catId, { openingStock: 2, lowStockThreshold: 5 });
+    await makeProduct(admin, catId, { openingStock: 50, lowStockThreshold: 5 });
     const res = await staff.get(`/api/v1/inventory/low-stock?categoryId=${catId}&pageSize=100`);
     const ids = (res.body.data as ProductDto[]).map((p) => p.id);
     expect(ids).toContain(low.id);

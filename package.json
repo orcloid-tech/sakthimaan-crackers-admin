@@ -19,25 +19,20 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky",
-    "check": "npm run lint && npm run format:check && npm run typecheck && npm test"
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm test",
+    "dev": "concurrently -k -n api,admin -c yellow,cyan \"npm run dev -w @sakthimaan/api\" \"npm run dev -w @sakthimaan/admin\"",
+    "seed": "npm run seed -w @sakthimaan/api --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.6",
     "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.13.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "prettier": "^3.9.10",
     "typescript-eslint": "^8.71.1"
-  },
-  "lint-staged": {
-    "*.{ts,tsx,mjs,js}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md,yml,yaml,css,html}": [
-      "prettier --write"
-    ]
   }
 }
