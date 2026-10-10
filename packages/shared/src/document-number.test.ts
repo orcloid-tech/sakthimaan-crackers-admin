@@ -37,15 +37,21 @@ describe('formatDocumentNumber', () => {
     expect(n).toBe('SMC/26-27/00042');
     expect(n.length).toBe(15);
     // still within 16 chars past the padded width
-    expect(formatDocumentNumber(DEFAULT_INVOICE_FORMAT, { prefix: 'SMC', fy, seq: 100_000 })).toBe('SMC/26-27/100000');
+    expect(formatDocumentNumber(DEFAULT_INVOICE_FORMAT, { prefix: 'SMC', fy, seq: 100_000 })).toBe(
+      'SMC/26-27/100000',
+    );
   });
 
-  it('default credit note format is SMC/CN/26-27/001 (16 chars)', () => {
-    expect(formatDocumentNumber(DEFAULT_CREDIT_NOTE_FORMAT, { prefix: 'SMC', fy, seq: 1 })).toBe('SMC/CN/26-27/001');
+  it('default credit note format is CN/26-27/00001 (14 chars), resetting each FY', () => {
+    expect(formatDocumentNumber(DEFAULT_CREDIT_NOTE_FORMAT, { prefix: 'SMC', fy, seq: 1 })).toBe(
+      'CN/26-27/00001',
+    );
   });
 
   it('refuses to produce a number longer than 16 chars', () => {
-    expect(() => formatDocumentNumber('{PREFIX}/CN/{FY}/{SEQ:4}', { prefix: 'SMC', fy, seq: 1 })).toThrow(/16/);
+    expect(() => formatDocumentNumber('{PREFIX}/CN/{FY}/{SEQ:4}', { prefix: 'SMC', fy, seq: 1 })).toThrow(
+      /16/,
+    );
   });
 
   it('counter keys are per series and financial year', () => {
@@ -62,7 +68,9 @@ describe('validateDocumentNumberFormat', () => {
 
   it('rejects formats that can exceed 16 chars, lack FY/SEQ, or use invalid characters', () => {
     expect(validateDocumentNumberFormat('{PREFIX}/CN/{FY}/{SEQ:4}', 'SMC')[0]).toMatch(/17 chars/);
-    expect(validateDocumentNumberFormat('{PREFIX}/{SEQ:5}', 'SMC')).toContainEqual(expect.stringMatching(/\{FY\}/));
+    expect(validateDocumentNumberFormat('{PREFIX}/{SEQ:5}', 'SMC')).toContainEqual(
+      expect.stringMatching(/\{FY\}/),
+    );
     expect(validateDocumentNumberFormat('{PREFIX}/{FY}', 'SMC')).toContainEqual(expect.stringMatching(/SEQ/));
     expect(validateDocumentNumberFormat('{PREFIX}_{FY}_{SEQ:4}', 'SMC')).toContainEqual(
       expect.stringMatching(/allowed/),

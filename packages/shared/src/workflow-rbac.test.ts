@@ -66,12 +66,19 @@ describe('links', () => {
       total: '₹3,500',
     });
     expect(msg).toBe('Hi Ravi, order ORD-26-27-00012 total ₹3,500');
-    expect(buildWhatsAppLink('9876543210', msg)).toBe(`https://wa.me/919876543210?text=${encodeURIComponent(msg)}`);
+    expect(buildWhatsAppLink('9876543210', msg)).toBe(
+      `https://wa.me/919876543210?text=${encodeURIComponent(msg)}`,
+    );
     expect(() => buildWhatsAppLink('12345', 'x')).toThrow(RangeError);
   });
 
   it('builds a UPI payment URI for the QR code', () => {
-    const uri = buildUpiUri({ vpa: 'sakthimaan@okaxis', payeeName: 'Sakthimaan Crackers', amount: 3_500, note: 'ORD-1' });
+    const uri = buildUpiUri({
+      vpa: 'sakthimaan@okaxis',
+      payeeName: 'Sakthimaan Crackers',
+      amount: 3_500,
+      note: 'ORD-1',
+    });
     expect(uri).toBe('upi://pay?pa=sakthimaan%40okaxis&pn=Sakthimaan+Crackers&cu=INR&am=35.00&tn=ORD-1');
   });
 });

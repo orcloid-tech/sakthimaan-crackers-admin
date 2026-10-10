@@ -14,6 +14,8 @@ const refreshTokenSchema = new Schema(
     expiresAt: { type: Date, required: true },
     revokedAt: { type: Date, default: null },
     replacedByHash: { type: String, default: null },
+    // Encrypted copy of the pair issued at rotation, replayed only within the grace window.
+    graceCipher: { type: String, default: null, select: false },
     createdByIp: { type: String },
     userAgent: { type: String, maxlength: 500 },
   },

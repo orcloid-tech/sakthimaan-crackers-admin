@@ -53,7 +53,12 @@ const settingsSchema = new Schema(
 
     // Prices are always GST-inclusive; taxable value is back-calculated.
     tax: {
-      sellerStateCode: { type: String, enum: INDIAN_STATE_CODES, default: DEFAULT_SELLER_STATE_CODE, required: true },
+      sellerStateCode: {
+        type: String,
+        enum: INDIAN_STATE_CODES,
+        default: DEFAULT_SELLER_STATE_CODE,
+        required: true,
+      },
       defaultHsn: { type: String, match: HSN_REGEX, default: DEFAULT_HSN, required: true },
       defaultTaxRate: { type: Number, min: 0, max: 28, default: DEFAULT_TAX_RATE, required: true },
     },
@@ -71,7 +76,7 @@ const settingsSchema = new Schema(
       // Tokens: {PREFIX} {FY} {SEQ:n}. Numbers restart every financial year (April–March).
       prefix: { type: String, default: DEFAULT_INVOICE_PREFIX, required: true },
       format: { type: String, default: DEFAULT_INVOICE_FORMAT, required: true }, // SMC/26-27/00042
-      creditNoteFormat: { type: String, default: DEFAULT_CREDIT_NOTE_FORMAT, required: true }, // SMC/CN/26-27/001
+      creditNoteFormat: { type: String, default: DEFAULT_CREDIT_NOTE_FORMAT, required: true }, // CN/26-27/00001
       terms: { type: String, maxlength: 2000 },
       footerNote: { type: String, maxlength: 500 },
       showUpiQr: { type: Boolean, default: true, required: true },

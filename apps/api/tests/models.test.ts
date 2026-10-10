@@ -26,13 +26,17 @@ const actor = { name: 'Test Admin', role: 'super_admin' };
 const address = { line1: '1 Main Rd', city: 'Sivakasi', stateCode: 'TN', pincode: '626123' } as const;
 
 async function makeCategory(overrides: Record<string, unknown> = {}) {
-  return CategoryModel.create({ name: 'Sparklers', slug: `sparklers-${new Types.ObjectId()}`, ...overrides });
+  return CategoryModel.create({
+    name: 'Sparklers',
+    slug: `sparklers-${new Types.ObjectId().toHexString()}`,
+    ...overrides,
+  });
 }
 
 async function makeProduct(categoryId: Types.ObjectId, overrides: Record<string, unknown> = {}) {
   return ProductModel.create({
     name: '7cm Electric Sparkler',
-    slug: `p-${new Types.ObjectId()}`,
+    slug: `p-${new Types.ObjectId().toHexString()}`,
     sku: `SKU-${Math.random().toString(36).slice(2, 8)}`,
     category: categoryId,
     mrp: 19_900,
@@ -81,7 +85,9 @@ describe('Product', () => {
   it('rejects stockMode "components" (reserved) and invalid discounts as validation errors', async () => {
     const cat = await makeCategory();
     await expect(makeProduct(cat._id, { stockMode: 'components' })).rejects.toThrow(/not supported yet/);
-    await expect(makeProduct(cat._id, { discountPct: 82.555 })).rejects.toThrow(mongoose.Error.ValidationError);
+    await expect(makeProduct(cat._id, { discountPct: 82.555 })).rejects.toThrow(
+      mongoose.Error.ValidationError,
+    );
   });
 
   it('soft-deleted SKUs are hidden and can be reused', async () => {
@@ -166,9 +172,21 @@ describe('Invoice / CreditNote immutability', () => {
     buyer: { name: 'Ravi', phone: '9876543210', address },
   } as const;
   const totals = {
-    mrpTotal: 39_800, productDiscount: 32_800, subtotal: 7_000, couponDiscount: 0, deliveryCharge: 0,
-    packingCharge: 0, taxableValue: 5_932, cgst: 534, sgst: 534, igst: 0, totalTax: 1_068,
-    grossTotal: 7_000, roundOff: 0, grandTotal: 7_000, amountInWords: 'Rupees Seventy Only',
+    mrpTotal: 39_800,
+    productDiscount: 32_800,
+    subtotal: 7_000,
+    couponDiscount: 0,
+    deliveryCharge: 0,
+    packingCharge: 0,
+    taxableValue: 5_932,
+    cgst: 534,
+    sgst: 534,
+    igst: 0,
+    totalTax: 1_068,
+    grossTotal: 7_000,
+    roundOff: 0,
+    grandTotal: 7_000,
+    amountInWords: 'Rupees Seventy Only',
   };
   const docBase = () => ({
     financialYear: fy.short,
@@ -199,16 +217,20 @@ describe('Invoice / CreditNote immutability', () => {
     // The only permitted change: cancellation via a credit note.
     const fresh = await InvoiceModel.findById(inv._id).orFail();
     fresh.status = 'cancelled';
-    fresh.set('cancelledBy', { creditNote: new Types.ObjectId(), number: 'SMC/CN/26-27/001', at: new Date() });
+    fresh.set('cancelledBy', {
+      creditNote: new Types.ObjectId(),
+      number: 'CN/26-27/00001',
+      at: new Date(),
+    });
     await expect(fresh.save()).resolves.toBeDefined();
   });
 
   it('invoice numbers are unique forever (no reuse) and one invoice per order', async () => {
     const order = new Types.ObjectId();
     await InvoiceModel.create({ ...docBase(), order, number: 'SMC/26-27/00100', seq: 100 });
-    await expect(
-      InvoiceModel.create({ ...docBase(), number: 'SMC/26-27/00100', seq: 101 }),
-    ).rejects.toThrow(/duplicate key/);
+    await expect(InvoiceModel.create({ ...docBase(), number: 'SMC/26-27/00100', seq: 101 })).rejects.toThrow(
+      /duplicate key/,
+    );
     await expect(
       InvoiceModel.create({ ...docBase(), order, number: 'SMC/26-27/00102', seq: 102 }),
     ).rejects.toThrow(/duplicate key/);
@@ -217,7 +239,7 @@ describe('Invoice / CreditNote immutability', () => {
   it('credit notes are fully immutable', async () => {
     const cn = await CreditNoteModel.create({
       ...docBase(),
-      number: 'SMC/CN/26-27/001',
+      number: 'CN/26-27/00001',
       seq: 1,
       invoice: new Types.ObjectId(),
       invoiceNumber: 'SMC/26-27/00042',
@@ -234,7 +256,11 @@ describe('Counter (gap-free numbering)', () => {
   it('an aborted transaction does not consume a number', async () => {
     const key = counterKey('invoice', financialYearOf(new Date()));
     const next = (session: mongoose.ClientSession) =>
-      CounterModel.findOneAndUpdate({ _id: key }, { $inc: { seq: 1 } }, { upsert: true, returnDocument: 'after', session });
+      CounterModel.findOneAndUpdate(
+        { _id: key },
+        { $inc: { seq: 1 } },
+        { upsert: true, returnDocument: 'after', session },
+      );
 
     const session = await mongoose.startSession();
     try {

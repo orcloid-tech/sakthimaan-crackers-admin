@@ -6,7 +6,7 @@ export const CREDIT_NOTE_REASONS = ['order_cancelled', 'goods_returned', 'price_
 
 /**
  * GST credit note against an issued invoice, with its own number series
- * (`credit_note:<FY>` counter, default format SMC/CN/26-27/001). Created in the same
+ * (`credit_note:<FY>` counter, default format CN/26-27/00001). Created in the same
  * transaction as the order cancellation. Fully immutable.
  */
 const creditNoteSchema = new Schema(

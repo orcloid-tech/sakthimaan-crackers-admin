@@ -6,7 +6,13 @@ const lines: PricingInput['lines'] = [
   { mrp: 19_900, netPrice: 3_500, qty: 3, hsn: '3604', taxRate: 18 },
   { mrp: 50_000, netPrice: 9_000, qty: 1, hsn: '3604', taxRate: 18 },
 ];
-const base = { lines, chargesHsn: '3604', chargesTaxRate: 18, sellerStateCode: 'TN', buyerStateCode: 'TN' } as const;
+const base = {
+  lines,
+  chargesHsn: '3604',
+  chargesTaxRate: 18,
+  sellerStateCode: 'TN',
+  buyerStateCode: 'TN',
+} as const;
 
 function expectBalanced(r: ReturnType<typeof priceOrder>) {
   expect(r.taxableValue + r.totalTax).toBe(r.grossTotal);
@@ -62,7 +68,10 @@ describe('priceOrder', () => {
   });
 
   it('keeps separate HSN summary rows per rate', () => {
-    const r = priceOrder({ ...base, lines: [...lines, { mrp: 1_000, netPrice: 500, qty: 2, hsn: '3604', taxRate: 12 }] });
+    const r = priceOrder({
+      ...base,
+      lines: [...lines, { mrp: 1_000, netPrice: 500, qty: 2, hsn: '3604', taxRate: 12 }],
+    });
     expect(r.hsnSummary.map((h) => h.taxRate).sort()).toEqual([12, 18]);
     expectBalanced(r);
   });

@@ -17,7 +17,12 @@ export function buildWhatsAppLink(mobile10: string, message: string): string {
 }
 
 /** UPI deep link (also the payload for the UPI QR code shown on storefront / invoice). */
-export function buildUpiUri(params: { vpa: string; payeeName: string; amount?: Paise; note?: string }): string {
+export function buildUpiUri(params: {
+  vpa: string;
+  payeeName: string;
+  amount?: Paise;
+  note?: string;
+}): string {
   if (!/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(params.vpa)) throw new RangeError('Invalid UPI ID');
   const q = new URLSearchParams({ pa: params.vpa, pn: params.payeeName, cu: 'INR' });
   if (params.amount !== undefined) {

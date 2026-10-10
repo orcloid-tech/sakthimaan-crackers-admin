@@ -1,7 +1,13 @@
 import type { Schema } from 'mongoose';
 
 const BLOCKED_DELETES = ['deleteOne', 'deleteMany', 'findOneAndDelete'] as const;
-const BLOCKED_UPDATES = ['updateOne', 'updateMany', 'findOneAndUpdate', 'findOneAndReplace', 'replaceOne'] as const;
+const BLOCKED_UPDATES = [
+  'updateOne',
+  'updateMany',
+  'findOneAndUpdate',
+  'findOneAndReplace',
+  'replaceOne',
+] as const;
 
 /**
  * For legal documents (GST invoices, credit notes): documents can never be deleted,

@@ -1,4 +1,4 @@
-import { COUPON_TYPES } from './enums.js';
+import { type COUPON_TYPES } from './enums.js';
 import {
   type Paise,
   assertPaise,
