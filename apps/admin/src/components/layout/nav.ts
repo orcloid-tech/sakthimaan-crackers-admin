@@ -37,7 +37,7 @@ export const NAV: NavGroup[] = [
   {
     label: 'Sales',
     items: [
-      { label: 'Orders & enquiries', to: '/orders', icon: ClipboardList, anyOf: ['orders:read'], soon: true },
+      { label: 'Orders & enquiries', to: '/orders', icon: ClipboardList, anyOf: ['orders:read'] },
       { label: 'Customers', to: '/customers', icon: Users, anyOf: ['customers:read'], soon: true },
       { label: 'Dispatch', to: '/dispatch', icon: Truck, anyOf: ['orders:dispatch'], soon: true },
     ],

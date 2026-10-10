@@ -42,7 +42,7 @@ import {
   ZoneModel,
 } from '../models/index.js';
 import { AuditService } from '../services/audit.service.js';
-import { InventoryService } from '../services/catalog/inventory.service.js';
+import { InventoryService, type BatchAllocation } from '../services/catalog/inventory.service.js';
 import { withTransaction } from '../utils/transaction.js';
 
 export const SEED_PASSWORD = 'Sakthimaan@2026';
@@ -1222,9 +1222,11 @@ async function run(): Promise<void> {
           { session, timestamps: false },
         );
         if (!order) return;
+        // Batch allocations per line, saved on the order so a cancel returns stock to the same batches.
+        const allocations: BatchAllocation[][] = snapshot.map(() => []);
         if (committed) {
-          for (const { p, qty } of snapshot) {
-            await inventory.apply(
+          for (const [i, { p, qty }] of snapshot.entries()) {
+            const outcome = await inventory.apply(
               {
                 productId: p._id,
                 type: 'order_deduct',
@@ -1237,15 +1239,22 @@ async function run(): Promise<void> {
               staff,
               session,
             );
+            allocations[i] = outcome.allocations;
           }
+          await OrderModel.updateOne(
+            { _id: order._id },
+            { $set: Object.fromEntries(allocations.map((al, i) => [`items.${i}.allocations`, al])) },
+            { session, timestamps: false },
+          );
         }
         if (o.status === 'cancelled') {
-          for (const { p, qty } of snapshot) {
+          for (const [i, { p, qty }] of snapshot.entries()) {
             await inventory.apply(
               {
                 productId: p._id,
                 type: 'order_restock',
                 qty,
+                restoreAllocations: allocations[i],
                 reason: 'Order cancelled',
                 refType: 'order',
                 refId: order._id,

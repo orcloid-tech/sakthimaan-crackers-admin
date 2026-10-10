@@ -1,33 +1,9 @@
-import { createRequire } from 'node:module';
-import path from 'node:path';
-import pdfmake from 'pdfmake';
 import type { Content, TableCell } from 'pdfmake';
+import { renderPdf, type DocDefinition } from '../pdf.js';
 import type { PriceListQuery } from '@sakthimaan/shared';
 import { CategoryModel, ProductModel, SeasonModel } from '../../models/index.js';
 import { oid } from '../../utils/query.js';
 import type { SettingsCache } from '../settings-cache.js';
-
-const require = createRequire(import.meta.url);
-const FONT_DIR = path.dirname(require.resolve('pdfmake/fonts/Roboto/Roboto-Regular.ttf'));
-
-let configured = false;
-function configurePdfmake(): void {
-  if (configured) return;
-  pdfmake.setFonts({
-    Roboto: {
-      normal: path.join(FONT_DIR, 'Roboto-Regular.ttf'),
-      bold: path.join(FONT_DIR, 'Roboto-Medium.ttf'),
-      italics: path.join(FONT_DIR, 'Roboto-Italic.ttf'),
-      bolditalics: path.join(FONT_DIR, 'Roboto-MediumItalic.ttf'),
-    },
-  });
-  // Documents are built only from our own data: no network fetches, no other local files.
-  pdfmake.setUrlAccessPolicy(() => false);
-  pdfmake.setLocalAccessPolicy((p: string) => path.resolve(p).startsWith(FONT_DIR));
-  configured = true;
-}
-
-type TDocumentDefinitions = Parameters<typeof pdfmake.createPdf>[0];
 
 const money = (paise: number) =>
   new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(paise / 100);
@@ -43,7 +19,6 @@ export class PriceListService {
   constructor(private readonly settings: SettingsCache) {}
 
   async render(q: PriceListQuery): Promise<Buffer> {
-    configurePdfmake();
     const [settings, categories, season] = await Promise.all([
       this.settings.get(),
       CategoryModel.find({ isActive: true }).sort({ sortOrder: 1, name: 1 }).lean(),
@@ -147,7 +122,7 @@ export class PriceListService {
     const title = season ? `PRICE LIST · ${season.name}` : `PRICE LIST ${new Date().getFullYear()}`;
     const minOrder = settings?.order?.defaultMinOrderValue;
 
-    const doc: TDocumentDefinitions = {
+    const doc: DocDefinition = {
       pageSize: 'A4',
       pageMargins: [28, 36, 28, 40],
       info: { title, author: company?.name ?? 'Sakthimaan Crackers', subject: 'Price list' },
@@ -229,6 +204,6 @@ export class PriceListService {
       }),
     };
 
-    return pdfmake.createPdf(doc).getBuffer();
+    return renderPdf(doc);
   }
 }

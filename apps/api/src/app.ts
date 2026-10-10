@@ -48,6 +48,12 @@ import {
   createInventoryRouter,
   createProductsRouter,
 } from './routes/v1/catalog.routes.js';
+import { createOrderController, createPublicOrderController } from './controllers/order.controller.js';
+import { createOrdersRouters, registerPublicOrderRoutes } from './routes/v1/orders.routes.js';
+import { DashboardService } from './services/orders/dashboard.service.js';
+import { OrderBuilder } from './services/orders/order-builder.js';
+import { OrderDocuments } from './services/orders/order-documents.js';
+import { OrderService } from './services/orders/order.service.js';
 
 export const API_VERSION = '0.1.0';
 
@@ -75,6 +81,8 @@ export interface AppContainer {
     products: ProductService;
     productIo: ProductIoService;
     priceList: PriceListService;
+    orders: OrderService;
+    dashboard: DashboardService;
   };
   docs: ApiDocs;
 }
@@ -105,6 +113,10 @@ export function createApp(deps: AppDeps): AppContainer {
   const products = new ProductService({ audit, inventory, storage, settings });
   const productIo = new ProductIoService({ audit, inventory, settings, maxRows: env.IMPORT_MAX_ROWS });
   const priceList = new PriceListService(settings);
+  const orderBuilder = new OrderBuilder(settings);
+  const orders = new OrderService({ audit, inventory, settings, builder: orderBuilder, storage });
+  const orderDocuments = new OrderDocuments(settings);
+  const dashboard = new DashboardService();
 
   const app = express();
   app.disable('x-powered-by');
@@ -188,6 +200,7 @@ export function createApp(deps: AppDeps): AppContainer {
   const publicRouter = createPublicRouter({
     writeGuards: [publicWriteLimiter(env.RATE_LIMIT_PUBLIC_WRITE_PER_10MIN), requireCaptcha(deps.captcha)],
     docs,
+    modules: [(r, guards, d) => registerPublicOrderRoutes(r, createPublicOrderController(orders), guards, d)],
   });
   app.use(
     '/api/v1/public',
@@ -207,6 +220,13 @@ export function createApp(deps: AppDeps): AppContainer {
     docs,
   });
   const imageUploads = imageUpload({ maxMb: env.UPLOAD_MAX_IMAGE_MB, maxFiles: MAX_PRODUCT_IMAGES });
+  const orderRoutes = createOrdersRouters(
+    createOrderController({ orders, documents: orderDocuments, dashboard }),
+    docs,
+    {
+      screenshot: imageUpload({ maxMb: env.UPLOAD_MAX_IMAGE_MB, maxFiles: 1 }),
+    },
+  );
   const inventoryRoutes = createInventoryRouter(createInventoryController(inventory, products, audit), docs);
   app.use(
     '/api/v1',
@@ -236,6 +256,9 @@ export function createApp(deps: AppDeps): AppContainer {
           ),
         },
         { path: '/inventory', router: inventoryRoutes.inventory },
+        { path: '/orders', router: orderRoutes.orders },
+        { path: '/payments', router: orderRoutes.payments },
+        { path: '/', router: orderRoutes.misc },
       ],
     }),
   );
@@ -246,7 +269,19 @@ export function createApp(deps: AppDeps): AppContainer {
 
   return {
     app,
-    services: { auth, audit, tokens, settings, inventory, categories, products, productIo, priceList },
+    services: {
+      auth,
+      audit,
+      tokens,
+      settings,
+      inventory,
+      categories,
+      products,
+      productIo,
+      priceList,
+      orders,
+      dashboard,
+    },
     docs,
   };
 }

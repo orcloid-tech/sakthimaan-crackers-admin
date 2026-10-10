@@ -460,3 +460,31 @@ apps/admin/src/
 ### Seed data (`npm run seed -- --reset`)
 
 One user per role (password `Sakthimaan@2026`), store settings (GSTIN, licence, UPI/bank), Diwali 2025/2026 seasons, zones, serviceable states and transport partners. Also 10 categories (16 including sub-categories), 49 products with realistic MRP and discounts (green flags, sound levels, a few low or out of stock, 2 drafts, 1 batch-tracked product), 4 gift boxes, 10 customers in TN/KA/KL/AP/TS/PY, and 14 orders across every status. Confirmed orders deducted stock through the inventory service, so ledgers reconcile.
+
+## 11. Orders and enquiries (API + UI)
+
+### Flow
+
+`enquiry → confirmed → payment_received → packed → dispatched → delivered`, with `cancelled` allowed until dispatch and `confirmed → packed` as the audited "pack on credit" path (needs `orders:pack_unpaid` and a credit customer). The allowed moves and the permission for each live in `packages/shared/src/order-workflow.ts` and are used by both the API and the UI buttons.
+
+### Decisions
+
+- **Prices are never taken from the client.** `OrderBuilder` reads active products, resolves tax (product → sub-category → category → settings) and snapshots every line, then prices with the shared `priceOrder()` (GST-inclusive, CGST+SGST vs IGST, round-off). The website and staff preview use the same code, so the bill shown is the bill saved.
+- **Serviceability and minimum order**: city override → state → zone → store default. Website orders below the minimum or to non-serviceable places are refused (`BELOW_MIN_ORDER`, `NOT_SERVICEABLE`); staff orders only get a warning.
+- **Stock moves on confirm, not on enquiry.** Confirm deducts every line through `InventoryService` in one transaction and saves the batch allocations on the line; if anything is short the whole confirm fails with `409 INSUFFICIENT_STOCK` listing every short line. The UI turns that into a dialog to reduce, remove or substitute, then updates the enquiry and confirms (with the version check).
+- **Cancel** returns stock to the same batches and, if an invoice exists, issues a credit note (`CN/26-27/00001`, own gap-free series). Invoices are never deleted or renumbered.
+- **Payments** are records, not a gateway: UPI / bank / cash with reference and optional screenshot. A reference already used on another order gives a warning, not a block. Payment status is recomputed from recorded payments; a fully paid confirmed order moves to `payment_received` automatically. Voiding keeps the record with a reason.
+- **Dispatch** needs transport, LR number and boxes before an order can be marked dispatched. A tracking link is built from the partner's URL template.
+- **Documents**: GST invoice (with UPI QR and bank details), packing slip (no prices) and credit note PDFs, rendered on demand from the immutable snapshots.
+- **WhatsApp**: click-to-chat `wa.me` links with prefilled messages per event; staff press send. No provider, no cost.
+- **Dashboard**: sales = confirmed orders by confirmation date (IST days); collections = recorded payments minus refunds. Compared with the previous season at the same point. Cached 60 s.
+
+### Endpoints
+
+Admin: `GET/POST /orders`, `POST /orders/preview`, `GET/PATCH /orders/:id`, `POST /orders/:id/transitions`, `POST /orders/:id/comments`, `POST /orders/:id/payments` (multipart), `POST /payments/:id/void`, `PUT /orders/:id/dispatch`, `POST /orders/:id/invoice`, `GET /orders/:id/invoice.pdf`, `GET /orders/:id/packing-slip.pdf`, `GET /orders/credit-notes/:cnId/pdf`, `GET /orders/:id/whatsapp-link?event=`, `GET /transport-partners`, `GET /customers/lookup?phone=`, `GET /dashboard/summary`.
+
+Public: `POST /public/orders` (rate limit + captcha), `POST /public/orders/preview` (no stock figures), `GET /public/orders/track?orderNo=&phone=`.
+
+### Screens
+
+Orders list (status chips, payment / state / date filters, search by order no., phone, name or LR; cards on phones), new order (phone lookup fills a returning customer's details, live bill from the server), order detail (workflow buttons by permission, item editing while an enquiry, shortage dialog, payment / void / dispatch / cancel dialogs as bottom sheets on phones, documents menu, WhatsApp menu, timeline with staff-only notes). The header search (`/` or Ctrl+K) now finds orders by number and customers by phone.

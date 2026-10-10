@@ -9,9 +9,14 @@ import { sendOk } from '../../../utils/http.js';
  * phases are mounted with `writeGuards` (strict per-IP limit + captcha).
  * Responses expose storefront-safe fields only.
  */
-export function createPublicRouter(deps: { writeGuards: RequestHandler[]; docs: ApiDocs }): Router {
+export function createPublicRouter(deps: {
+  writeGuards: RequestHandler[];
+  docs: ApiDocs;
+  /** Feature modules add their public routes here (orders, …). */
+  modules?: readonly ((r: Router, writeGuards: RequestHandler[], docs: ApiDocs) => void)[];
+}): Router {
   const r = Router();
-  void deps.writeGuards; // used by POST /orders, /coupons/validate, /payment-proof (phases 4–5)
+  for (const register of deps.modules ?? []) register(r, deps.writeGuards, deps.docs);
 
   r.get('/store', async (_req, res) => {
     const doc = await SettingsModel.findById(SETTINGS_ID).lean();

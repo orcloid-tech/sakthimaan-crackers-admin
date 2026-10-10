@@ -37,6 +37,15 @@ const InventoryPage = lazy(() =>
 const ProductLedgerPage = lazy(() =>
   import('@/features/inventory/inventory-page').then((m) => ({ default: m.ProductLedgerPage })),
 );
+const OrdersPage = lazy(() =>
+  import('@/features/orders/orders-page').then((m) => ({ default: m.OrdersPage })),
+);
+const OrderFormPage = lazy(() =>
+  import('@/features/orders/order-form-page').then((m) => ({ default: m.OrderFormPage })),
+);
+const OrderDetailPage = lazy(() =>
+  import('@/features/orders/order-detail-page').then((m) => ({ default: m.OrderDetailPage })),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,6 +97,30 @@ const router = createBrowserRouter(
               element: (
                 <RequirePermission anyOf={['dashboard:read']}>
                   <DashboardPage />
+                </RequirePermission>
+              ),
+            },
+            {
+              path: 'orders',
+              element: (
+                <RequirePermission anyOf={['orders:read']}>
+                  <OrdersPage />
+                </RequirePermission>
+              ),
+            },
+            {
+              path: 'orders/new',
+              element: (
+                <RequirePermission anyOf={['orders:create']}>
+                  <OrderFormPage />
+                </RequirePermission>
+              ),
+            },
+            {
+              path: 'orders/:id',
+              element: (
+                <RequirePermission anyOf={['orders:read']}>
+                  <OrderDetailPage />
                 </RequirePermission>
               ),
             },

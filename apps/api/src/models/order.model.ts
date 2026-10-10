@@ -52,8 +52,61 @@ const orderItemSchema = new Schema(
       type: [{ _id: false, sku: String, name: String, qty: Number }],
       default: [],
     },
+    // Batches this line's stock was taken from on confirm (batch-tracked products), so a
+    // cancellation puts back exactly the same lots.
+    allocations: {
+      type: [{ _id: false, batchId: { type: Schema.Types.ObjectId, ref: 'StockBatch' }, qty: Number }],
+      default: [],
+    },
   },
   { _id: true },
+);
+
+/** Customer details as they were when the order was placed. */
+const customerSnapshotSchema = new Schema(
+  {
+    name: { type: String, required: true },
+    phone: { type: String, required: true, match: MOBILE_REGEX },
+    altPhone: { type: String },
+    email: { type: String },
+    gstin: { type: String, uppercase: true, match: GSTIN_REGEX }, // B2B buyers
+  },
+  { _id: false },
+);
+
+/**
+ * Output of shared `priceOrder()`; recomputed whenever items change (enquiry only),
+ * frozen from confirmation onwards. All amounts in paise.
+ */
+const pricingSchema = new Schema(
+  {
+    mrpTotal: paise,
+    productDiscount: paise,
+    subtotal: paise,
+    couponCode: { type: String },
+    couponDiscount: { ...paise, default: 0 },
+    deliveryCharge: { ...paise, default: 0 },
+    deliveryChargeMode: { type: String, enum: DELIVERY_CHARGE_MODES, default: 'to_pay' },
+    packingCharge: { ...paise, default: 0 },
+    charges: {
+      hsn: { type: String },
+      taxRate: { type: Number },
+      taxableValue: { type: Number, default: 0 },
+      cgst: { type: Number, default: 0 },
+      sgst: { type: Number, default: 0 },
+      igst: { type: Number, default: 0 },
+    },
+    ...taxParts,
+    totalTax: paise,
+    grossTotal: paise,
+    roundOff: { ...paise, default: 0 }, // signed
+    grandTotal: paise,
+    isInterState: { type: Boolean, required: true },
+    sellerStateCode: { type: String, enum: INDIAN_STATE_CODES, required: true },
+    placeOfSupply: { type: String, enum: INDIAN_STATE_CODES, required: true },
+    netPriceRounding: { type: String, enum: NET_PRICE_ROUNDING_MODES },
+  },
+  { _id: false },
 );
 
 const orderSchema = new Schema(
@@ -64,13 +117,7 @@ const orderSchema = new Schema(
     source: { type: String, enum: ORDER_SOURCES, required: true },
 
     customer: { type: Schema.Types.ObjectId, ref: 'Customer', required: true },
-    customerSnapshot: {
-      name: { type: String, required: true },
-      phone: { type: String, required: true, match: MOBILE_REGEX },
-      altPhone: { type: String },
-      email: { type: String },
-      gstin: { type: String, uppercase: true, match: GSTIN_REGEX }, // B2B buyers
-    },
+    customerSnapshot: { type: customerSnapshotSchema, required: true },
     shippingAddress: { type: addressSchema, required: true },
     zoneName: { type: String }, // snapshot of resolved zone at order time
 
@@ -80,35 +127,7 @@ const orderSchema = new Schema(
       validate: { validator: (v: unknown[]) => v.length > 0, message: 'Order must have items' },
     },
 
-    // Output of shared `priceOrder()`; recomputed whenever items change (enquiry only),
-    // frozen from confirmation onwards. All amounts in paise.
-    pricing: {
-      mrpTotal: paise,
-      productDiscount: paise,
-      subtotal: paise,
-      couponCode: { type: String },
-      couponDiscount: { ...paise, default: 0 },
-      deliveryCharge: { ...paise, default: 0 },
-      deliveryChargeMode: { type: String, enum: DELIVERY_CHARGE_MODES, default: 'to_pay' },
-      packingCharge: { ...paise, default: 0 },
-      charges: {
-        hsn: { type: String },
-        taxRate: { type: Number },
-        taxableValue: { type: Number, default: 0 },
-        cgst: { type: Number, default: 0 },
-        sgst: { type: Number, default: 0 },
-        igst: { type: Number, default: 0 },
-      },
-      ...taxParts,
-      totalTax: paise,
-      grossTotal: paise,
-      roundOff: { ...paise, default: 0 }, // signed
-      grandTotal: paise,
-      isInterState: { type: Boolean, required: true },
-      sellerStateCode: { type: String, enum: INDIAN_STATE_CODES, required: true },
-      placeOfSupply: { type: String, enum: INDIAN_STATE_CODES, required: true },
-      netPriceRounding: { type: String, enum: NET_PRICE_ROUNDING_MODES },
-    },
+    pricing: { type: pricingSchema, required: true },
 
     paymentStatus: { type: String, enum: PAYMENT_STATUSES, default: 'unpaid', required: true },
     amountPaid: { type: Number, default: 0, required: true }, // Σ recorded payments − refunds
