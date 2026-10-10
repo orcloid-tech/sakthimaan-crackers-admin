@@ -74,7 +74,12 @@ const productSchema = new Schema(
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     ...softDeleteFields,
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+    // Edits send the version they loaded; save() also fails if another save landed in between.
+    // Stock changes use $inc on stock/stockVersion and do not bump this version.
+    optimisticConcurrency: true,
+  },
 );
 
 productSchema.plugin(softDeletePlugin);

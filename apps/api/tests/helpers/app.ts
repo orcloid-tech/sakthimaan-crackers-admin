@@ -1,12 +1,19 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import bcrypt from 'bcryptjs';
 import { pino } from 'pino';
-import type { Response } from 'supertest';
+import request, { type Response } from 'supertest';
 import type { Role } from '@sakthimaan/shared';
 import { createApp, type AppDeps } from '../../src/app.js';
 import { loadEnv, type Env } from '../../src/config/env.js';
 import { UserModel } from '../../src/models/index.js';
 import { NoopCaptchaVerifier } from '../../src/providers/captcha/captcha.provider.js';
 import { ConsoleMailer } from '../../src/providers/mail/mailer.js';
+import { LocalStorage } from '../../src/providers/storage/index.js';
+
+/** Per-run temp directory for uploaded files (LocalStorage). */
+export const uploadDir = mkdtempSync(path.join(tmpdir(), 'smc-uploads-'));
 
 export const ADMIN_ORIGIN = 'http://admin.test';
 export const SHOP_ORIGIN = 'http://shop.test';
@@ -33,8 +40,16 @@ export function buildTestApp(opts: { env?: Record<string, string>; deps?: Partia
   const env = testEnv(opts.env);
   const logger = pino({ level: 'silent' });
   const mailer = new ConsoleMailer(logger);
-  const container = createApp({ env, logger, mailer, captcha: new NoopCaptchaVerifier(), ...opts.deps });
-  return { ...container, env, mailer };
+  const storage = new LocalStorage(uploadDir, 'http://api.test');
+  const container = createApp({
+    env,
+    logger,
+    mailer,
+    captcha: new NoopCaptchaVerifier(),
+    storage,
+    ...opts.deps,
+  });
+  return { ...container, env, mailer, storage };
 }
 
 let seq = 0;
@@ -65,4 +80,22 @@ export function refreshCookie(res: Response, name = 'smc_rt'): string | undefine
 export function setCookieHeader(res: Response, name = 'smc_rt'): string | undefined {
   const raw = res.headers['set-cookie'] as unknown as string[] | undefined;
   return raw?.find((c) => c.startsWith(`${name}=`));
+}
+
+type App = ReturnType<typeof buildTestApp>['app'];
+
+/** Signs in as a fresh user with the given role; returns an authorised request builder. */
+export async function signedIn(app: App, role: Role = 'super_admin') {
+  const { user, email, password } = await createUser({ role });
+  const res = await request(app).post('/api/v1/auth/login').send({ email, password });
+  const token = (res.body as { data: { accessToken: string } }).data.accessToken;
+  const auth = { Authorization: `Bearer ${token}` };
+  return {
+    user,
+    get: (url: string) => request(app).get(url).set(auth),
+    post: (url: string) => request(app).post(url).set(auth),
+    patch: (url: string) => request(app).patch(url).set(auth),
+    put: (url: string) => request(app).put(url).set(auth),
+    delete: (url: string) => request(app).delete(url).set(auth),
+  };
 }

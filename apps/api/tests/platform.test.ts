@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { EnvValidationError, cookieHostingWarnings, loadEnv } from '../src/config/env.js';
+import { EnvValidationError, deploymentWarnings, loadEnv } from '../src/config/env.js';
 import { SETTINGS_ID, SettingsModel } from '../src/models/index.js';
 import { PASSWORD, buildTestApp, createUser, setCookieHeader, testEnv } from './helpers/app.js';
 import { useTestDb } from './helpers/db.js';
@@ -91,9 +91,9 @@ describe('env validation', () => {
 
   it('warns when the admin app is on a shared hosting domain', () => {
     expect(
-      cookieHostingWarnings(testEnv({ CORS_ADMIN_ORIGINS: 'https://sakthi-admin.onrender.com' }))[0],
+      deploymentWarnings(testEnv({ CORS_ADMIN_ORIGINS: 'https://sakthi-admin.onrender.com' }))[0],
     ).toMatch(/shared hosting domain/);
-    expect(cookieHostingWarnings(testEnv({ CORS_ADMIN_ORIGINS: 'https://admin.sakthimaan.in' }))).toEqual([]);
+    expect(deploymentWarnings(testEnv({ CORS_ADMIN_ORIGINS: 'https://admin.sakthimaan.in' }))).toEqual([]);
   });
 
   it('sets Domain on the refresh cookie only when COOKIE_DOMAIN is configured', async () => {

@@ -1,7 +1,7 @@
 import type { Server } from 'node:http';
 import { createApp } from './app.js';
 import { connectDb, disconnectDb } from './config/db.js';
-import { EnvValidationError, cookieHostingWarnings, loadEnv } from './config/env.js';
+import { EnvValidationError, deploymentWarnings, loadEnv } from './config/env.js';
 import { createLogger, type Logger } from './config/logger.js';
 import { createCaptchaVerifier } from './providers/captcha/captcha.provider.js';
 import { createMailer } from './providers/mail/mailer.js';
@@ -23,7 +23,7 @@ async function main(): Promise<void> {
   let shuttingDown = false;
 
   await connectDb(env.MONGODB_URI, logger, { autoIndex: !env.isProduction });
-  for (const warning of cookieHostingWarnings(env)) logger.warn(warning);
+  for (const warning of deploymentWarnings(env)) logger.warn(warning);
   await loadRuntimeSettings(logger);
 
   const { app } = createApp({

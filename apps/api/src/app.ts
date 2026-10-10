@@ -29,7 +29,25 @@ import { createAdminRouter } from './routes/v1/index.js';
 import { createPublicRouter } from './routes/v1/public/index.js';
 import { AuditService } from './services/audit.service.js';
 import { AuthService } from './services/auth.service.js';
+import { CategoryService } from './services/catalog/category.service.js';
+import { InventoryService } from './services/catalog/inventory.service.js';
+import { PriceListService } from './services/catalog/price-list.service.js';
+import { ProductIoService } from './services/catalog/product-io.service.js';
+import { MAX_PRODUCT_IMAGES, ProductService } from './services/catalog/product.service.js';
+import { SettingsCache } from './services/settings-cache.js';
 import { TokenService } from './services/token.service.js';
+import {
+  createCategoryController,
+  createInventoryController,
+  createProductController,
+} from './controllers/catalog.controller.js';
+import { imageUpload, spreadsheetUpload } from './middlewares/upload.js';
+import { LocalStorage, createStorage, type StorageProvider } from './providers/storage/index.js';
+import {
+  createCategoriesRouter,
+  createInventoryRouter,
+  createProductsRouter,
+} from './routes/v1/catalog.routes.js';
 
 export const API_VERSION = '0.1.0';
 
@@ -41,11 +59,23 @@ export interface AppDeps {
   twoFactor?: TwoFactorProviders;
   /** Reported by /health/ready so the load balancer drains this instance during shutdown. */
   isShuttingDown?: () => boolean;
+  /** Defaults to the provider selected by STORAGE_PROVIDER. */
+  storage?: StorageProvider;
 }
 
 export interface AppContainer {
   app: Express;
-  services: { auth: AuthService; audit: AuditService; tokens: TokenService };
+  services: {
+    auth: AuthService;
+    audit: AuditService;
+    tokens: TokenService;
+    settings: SettingsCache;
+    inventory: InventoryService;
+    categories: CategoryService;
+    products: ProductService;
+    productIo: ProductIoService;
+    priceList: PriceListService;
+  };
   docs: ApiDocs;
 }
 
@@ -68,6 +98,13 @@ export function createApp(deps: AppDeps): AppContainer {
     twoFactor: deps.twoFactor ?? {},
   });
   const docs = new ApiDocs();
+  const storage = deps.storage ?? createStorage(env);
+  const settings = new SettingsCache();
+  const inventory = new InventoryService(audit);
+  const categories = new CategoryService(audit, storage);
+  const products = new ProductService({ audit, inventory, storage, settings });
+  const productIo = new ProductIoService({ audit, inventory, settings, maxRows: env.IMPORT_MAX_ROWS });
+  const priceList = new PriceListService(settings);
 
   const app = express();
   app.disable('x-powered-by');
@@ -99,6 +136,19 @@ export function createApp(deps: AppDeps): AppContainer {
 
   // ---- security headers on every response (the docs route relaxes CSP for itself below)
   app.use(helmet());
+
+  // ---- local uploads (development storage only; production images are on Cloudinary)
+  if (storage instanceof LocalStorage) {
+    app.use(
+      '/uploads',
+      (_req, res, next) => {
+        // Let the admin app (another origin) display these images.
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        next();
+      },
+      express.static(storage.directory, { index: false, dotfiles: 'deny', immutable: true, maxAge: '30d' }),
+    );
+  }
 
   // ---- health (no CORS / rate limit; used by Docker and the load balancer)
   app.use(createHealthRouter({ version: API_VERSION, isShuttingDown: deps.isShuttingDown ?? (() => false) }));
@@ -155,15 +205,47 @@ export function createApp(deps: AppDeps): AppContainer {
     originGuard: requireAllowedOrigin(env.CORS_ADMIN_ORIGINS),
     docs,
   });
+  const imageUploads = imageUpload({ maxMb: env.UPLOAD_MAX_IMAGE_MB, maxFiles: MAX_PRODUCT_IMAGES });
+  const inventoryRoutes = createInventoryRouter(createInventoryController(inventory, products, audit), docs);
   app.use(
     '/api/v1',
     adminApiLimiter(env.RATE_LIMIT_ADMIN_PER_MIN),
-    createAdminRouter({ authRouter, authenticate: authMiddleware }),
+    createAdminRouter({
+      authRouter,
+      authenticate: authMiddleware,
+      modules: [
+        {
+          path: '/categories',
+          router: createCategoriesRouter(
+            createCategoryController(categories),
+            docs,
+            imageUpload({ maxMb: env.UPLOAD_MAX_IMAGE_MB, maxFiles: 1 }),
+          ),
+        },
+        { path: '/products', router: inventoryRoutes.ledger },
+        {
+          path: '/products',
+          router: createProductsRouter(
+            createProductController({ products, io: productIo, priceList }),
+            docs,
+            {
+              images: imageUploads,
+              spreadsheet: spreadsheetUpload({ maxMb: env.IMPORT_MAX_FILE_MB }),
+            },
+          ),
+        },
+        { path: '/inventory', router: inventoryRoutes.inventory },
+      ],
+    }),
   );
 
   // ---- errors
   app.use(notFoundHandler);
   app.use(errorHandler({ exposeInternalErrors: !env.isProduction }));
 
-  return { app, services: { auth, audit, tokens }, docs };
+  return {
+    app,
+    services: { auth, audit, tokens, settings, inventory, categories, products, productIo, priceList },
+    docs,
+  };
 }

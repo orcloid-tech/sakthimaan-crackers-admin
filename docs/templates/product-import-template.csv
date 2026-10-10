@@ -1,0 +1,4 @@
+﻿sku,name,category,sub_category,unit,contents_per_unit,mrp,discount_percent,hsn,gst_rate,opening_stock,low_stock_alert,green_cracker,sound_level,min_age,safety_warning,description,tags,video_url,active,featured,sort_order
+SP-7CM-ELEC,7cm Electric Sparkler,Sparklers,,box,10,199,82.5,,,500,50,yes,none,6,Hold at arm length. Adult supervision.,,kids;sparkler,,yes,yes,1
+FP-BIG,Flower Pot Big,Flower Pots,,box,10,450,80,,,300,30,yes,low,12,Light on flat ground and step back.,,,,yes,no,1
+RK-LUNIK,Lunik Rocket,Rockets,,pkt,10,750,80,,,120,20,no,high,14,Launch from a bottle in open space.,,aerial,,yes,no,2

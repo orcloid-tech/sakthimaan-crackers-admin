@@ -95,6 +95,22 @@ const envSchema = z
 
     CAPTCHA_PROVIDER: z.enum(['none']).default('none'),
 
+    /** cloudinary in production; local (disk, served at /uploads) for development. */
+    STORAGE_PROVIDER: z.enum(['local', 'cloudinary']).default('local'),
+    LOCAL_UPLOAD_DIR: z.string().default('uploads'),
+    /** Public base URL of this API, used to build local upload URLs. */
+    PUBLIC_API_URL: z.url().optional(),
+    CLOUDINARY_CLOUD_NAME: z.string().optional(),
+    CLOUDINARY_API_KEY: z.string().optional(),
+    CLOUDINARY_API_SECRET: z.string().optional(),
+    CLOUDINARY_FOLDER: z
+      .string()
+      .regex(/^[a-z0-9_\-/]+$/i)
+      .default('sakthimaan'),
+    UPLOAD_MAX_IMAGE_MB: int(5, 1, 20),
+    IMPORT_MAX_FILE_MB: int(2, 1, 20),
+    IMPORT_MAX_ROWS: int(2000, 1, 10_000),
+
     API_DOCS_ENABLED: bool.optional(),
     JSON_BODY_LIMIT: z.string().default('1mb'),
   })
@@ -138,6 +154,12 @@ const envSchema = z
         });
       }
     }
+    if (env.STORAGE_PROVIDER === 'cloudinary') {
+      for (const key of ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'] as const) {
+        if (!env[key])
+          ctx.addIssue({ code: 'custom', path: [key], message: 'Required when STORAGE_PROVIDER=cloudinary' });
+      }
+    }
     if (env.MAIL_PROVIDER === 'smtp' && !env.SMTP_HOST) {
       ctx.addIssue({ code: 'custom', path: ['SMTP_HOST'], message: 'Required when MAIL_PROVIDER=smtp' });
     }
@@ -179,8 +201,13 @@ function isWithinDomain(host: string, domain: string): boolean {
 }
 
 /** Non-fatal hosting problems worth logging at startup (fatal ones fail validation). */
-export function cookieHostingWarnings(env: Env): string[] {
+export function deploymentWarnings(env: Env): string[] {
   const warnings: string[] = [];
+  if (env.isProduction && env.STORAGE_PROVIDER === 'local') {
+    warnings.push(
+      'STORAGE_PROVIDER=local in production: uploads are lost on redeploy on Render/Railway (ephemeral disk). Use cloudinary.',
+    );
+  }
   for (const origin of env.CORS_ADMIN_ORIGINS) {
     const host = new URL(origin).hostname;
     if (SHARED_HOSTING_SUFFIXES.some((s) => isWithinDomain(host, s))) {

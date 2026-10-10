@@ -11,6 +11,7 @@ Architecture, data model, endpoints and RBAC matrix: [docs/ARCHITECTURE.md](docs
 packages/shared   enums, RBAC, pricing/GST, numbering, zod schemas (used by API and admin UI)
 apps/api          Express 5 + Mongoose API
 apps/admin        React admin panel (phase 6)
+docs/templates    product import template (CSV + Excel) and a guide to send to the client
 ```
 
 ## Local development (no Docker needed)
@@ -79,3 +80,4 @@ option and is all the refresh flow needs).
 | `npm run build`                                         | Build shared + API to `dist/`                                            |
 | `npm run db:indexes -w @sakthimaan/api`                 | Sync MongoDB indexes (run on every deploy; production has autoIndex off) |
 | `npm run db:local -w @sakthimaan/api`                   | Offline local MongoDB replica set (dev fallback)                         |
+| `npm run templates -w @sakthimaan/api`                  | Regenerate docs/templates from the shared import column definitions      |

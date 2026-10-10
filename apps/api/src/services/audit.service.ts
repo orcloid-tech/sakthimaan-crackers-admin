@@ -68,6 +68,15 @@ export class AuditService {
     );
   }
 
+  /** Many entries in one insert (bulk operations, imports). */
+  async recordMany(entries: AuditEntry[], meta?: RequestMeta, session?: ClientSession): Promise<void> {
+    if (entries.length === 0) return;
+    await AuditLogModel.insertMany(
+      entries.map((e) => ({ ...e, ip: meta?.ip, userAgent: meta?.userAgent, requestId: meta?.requestId })),
+      session ? { session } : {},
+    );
+  }
+
   /** For events that must never fail the request (e.g. failed-login logging). */
   async recordSafely(entry: AuditEntry, meta?: RequestMeta): Promise<void> {
     try {

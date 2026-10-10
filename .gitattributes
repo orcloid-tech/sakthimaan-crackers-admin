@@ -3,3 +3,6 @@
 *.jpg binary
 *.ico binary
 *.pdf binary
+*.xlsx binary
+# Client-facing CSV templates keep CRLF + BOM (Excel-friendly) byte-for-byte.
+docs/templates/*.csv -text

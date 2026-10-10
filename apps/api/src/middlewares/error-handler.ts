@@ -4,6 +4,7 @@ import { errors as joseErrors } from 'jose';
 import type { ApiFailure, ValidationIssue } from '@sakthimaan/shared';
 import { AppError } from '../utils/app-error.js';
 import { requestIdOf } from './request-context.js';
+import { multerToAppError } from './upload.js';
 
 interface MongoServerErrorLike {
   name: string;
@@ -64,6 +65,9 @@ export function toAppError(err: unknown): AppError | null {
   if (err instanceof joseErrors.JOSEError) {
     return new AppError(401, 'TOKEN_INVALID', 'Invalid token');
   }
+
+  const upload = multerToAppError(err);
+  if (upload) return upload;
 
   const bp = bodyParserError(err);
   if (bp?.type === 'entity.too.large')
