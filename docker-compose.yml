@@ -1,0 +1,41 @@
+# Local development services.
+# MongoDB runs as a single-node replica set so multi-document transactions work
+# locally exactly as they do in the test suite (mongodb-memory-server) and on Atlas.
+# API and admin containers are added in phase 8.
+#
+#   docker compose up -d mongo
+#   MONGODB_URI=mongodb://localhost:27017/sakthimaan?replicaSet=rs0&directConnection=true
+#
+# `directConnection=true` lets clients on the host and in other containers connect
+# without resolving the replica set member's advertised hostname.
+name: sakthimaan
+
+services:
+  mongo:
+    image: mongo:8.0
+    command: ['--replSet', 'rs0', '--bind_ip_all', '--port', '27017']
+    ports:
+      - '127.0.0.1:27017:27017' # local only; no auth in development
+    volumes:
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+    healthcheck:
+      # Initiates the replica set on first start, then reports healthy once a primary exists.
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - >-
+          try { rs.status().ok } catch (e) {
+            rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }).ok
+          }; db.hello().isWritablePrimary || quit(1)
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+  mongo-config:

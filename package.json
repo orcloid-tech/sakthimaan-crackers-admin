@@ -1,0 +1,19 @@
+{
+  "name": "sakthimaan-crackers-admin",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Admin panel & API for Sakthimaan Crackers",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build:shared": "npm run build -w @sakthimaan/shared",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build:shared && npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  }
+}
