@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { PutFileInput, StorageProvider, StoredFile } from './storage.provider.js';
 
@@ -38,6 +38,11 @@ export class LocalStorage implements StorageProvider {
       bytes: input.buffer.length,
       mimeType: input.contentType,
     };
+  }
+
+  async read(file: Pick<StoredFile, 'key' | 'url'>): Promise<Buffer> {
+    if (!SAFE_KEY.test(file.key)) throw new Error('Invalid storage key');
+    return readFile(this.resolve(file.key));
   }
 
   async remove(key: string): Promise<void> {

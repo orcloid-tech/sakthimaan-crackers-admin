@@ -488,3 +488,35 @@ Public: `POST /public/orders` (rate limit + captcha), `POST /public/orders/previ
 ### Screens
 
 Orders list (status chips, payment / state / date filters, search by order no., phone, name or LR; cards on phones), new order (phone lookup fills a returning customer's details, live bill from the server), order detail (workflow buttons by permission, item editing while an enquiry, shortage dialog, payment / void / dispatch / cancel dialogs as bottom sheets on phones, documents menu, WhatsApp menu, timeline with staff-only notes). The header search (`/` or Ctrl+K) now finds orders by number and customers by phone.
+
+## 12. Settings, delivery zones and customers
+
+### Settings (`/settings`)
+
+- **One document, edited a section at a time** (company, storefront, tax & rounding, invoice numbering, payments, order & stock defaults, WhatsApp messages). Each save carries the settings `version`; a stale version gets `409 VERSION_CONFLICT` so two people can't overwrite each other. Every change is audited with a field-level diff.
+- **Who can change what**: `settings:update` (Super Admin) for everything; `cms:manage` (Admin) for the storefront section only (open/closed, order mode, announcement). Everyone signed in can read `GET /settings/runtime` (rounding, tax defaults, store status) for the product form preview.
+- **Rounding mode** change re-prices every product in the same transaction and is audited as one bulk change; orders already placed keep their prices.
+- **Invoice / credit note numbers**: separate prefixes, `{PREFIX}/{FY}/{SEQ:n}`, validated to GST's 16-character limit before saving. The screen shows the next numbers from the live counters.
+- **Documents**: invoice, credit note, packing slip and price list read company details and the logo from settings. Invoices and credit notes already issued keep the seller details they were issued with (a GST document must not change after issue); only the logo is current.
+- **Logo / UPI QR** uploads go through the same image sanitiser as product photos; PDFs embed a PNG copy (pdfmake can't read WebP), cached in memory.
+- **WhatsApp messages** are editable per event with `{{placeholders}}`; line breaks are kept.
+- **Seasons** (dashboard comparisons) can't overlap.
+
+### Delivery & zones (`/shipping`, `shipping:read` / `shipping:manage`)
+
+- **States**: every state/UT has a row; switch delivery on/off one at a time or in bulk, assign a zone, override the minimum order, and set the message customers see when you don't deliver.
+- **Zones**: minimum order, delivery mode (to pay at the transport office, or prepaid with charge bands by order value: flat ₹, % of subtotal, or free), delivery days. A zone with states can't be deleted.
+- **City exceptions**: block a city or change its minimum; matched case- and space-insensitively against what the customer types.
+- **Transport partners**: contacts, tracking link with `{lr}`, states served (flags unusual choices at dispatch). Inactive partners disappear from the dispatch dialog.
+- Resolution order for an order: city → state → zone → store default. Changes apply to the next preview / order immediately.
+
+### Customers (`/customers`)
+
+- Created automatically from orders (one per mobile number). List with search (name, phone digits, email, GSTIN, tag), blocked / credit filters, sort by last order, spend, orders.
+- Profile: totals (confirmed orders, total paid, still to pay on confirmed orders, open enquiries), order history (`GET /orders?customerId=`), contact, notes, tags, saved addresses (exactly one default).
+- **Block / unblock** (`customers:block`, reason required) and **credit** (`customers:credit`, Admin and Super Admin only) are separate audited actions. A blocked customer's website orders are refused.
+- Editing a customer never changes past orders or invoices (they keep their snapshot). Changing the phone number is checked for duplicates.
+
+### Enquiry delivery details
+
+While an order is an enquiry, staff can change the delivery address and contact (`PATCH /orders/:id` with `address` / `customer`). The bill is recalculated, so a different state switches CGST+SGST ↔ IGST and picks up that state's zone, minimum and delivery terms.

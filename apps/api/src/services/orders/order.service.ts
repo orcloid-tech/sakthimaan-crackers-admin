@@ -277,6 +277,7 @@ export class OrderService {
     if (q.status) filter.status = q.status;
     if (q.paymentStatus) filter.paymentStatus = q.paymentStatus;
     if (q.stateCode) filter['shippingAddress.stateCode'] = q.stateCode;
+    if (q.customerId) filter.customer = oid(q.customerId);
     if (q.from || q.to)
       filter.createdAt = { ...(q.from ? { $gte: q.from } : {}), ...(q.to ? { $lte: endOfDay(q.to) } : {}) };
     if (q.q) {
@@ -1114,7 +1115,10 @@ export class OrderService {
     if (!order) throw notFound('Order');
     const settings = await this.deps.settings.get();
     const due = Math.max(0, order.pricing.grandTotal - order.amountPaid);
-    const message = renderTemplate(DEFAULT_WHATSAPP_MESSAGES[event], {
+    const template =
+      settings?.whatsappTemplates?.find((t) => t.event === event)?.message ??
+      DEFAULT_WHATSAPP_MESSAGES[event];
+    const message = renderTemplate(template, {
       name: order.customerSnapshot.name.split(' ')[0] ?? order.customerSnapshot.name,
       orderNo: order.orderNo,
       total: formatINR(order.pricing.grandTotal),
@@ -1126,7 +1130,10 @@ export class OrderService {
       store: settings?.company?.name ?? 'us',
       reason: order.cancelReason ? `Reason: ${order.cancelReason}.` : '',
     })
-      .replace(/\s+/g, ' ')
+      // Keep line breaks staff put in custom messages; tidy spaces left by empty fields.
+      .replace(/[ \t]+/g, ' ')
+      .replace(/ *\n */g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
       .trim();
     return {
       url: buildWhatsAppLink(order.customerSnapshot.phone, message),

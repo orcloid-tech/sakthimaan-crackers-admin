@@ -54,7 +54,7 @@ export async function nextCreditNoteNo(settings: Settings | null, session: Clien
   const fy = financialYearOf(now);
   const seq = await nextSeq('credit_note', fy, session);
   const number = formatDocumentNumber(settings?.invoice?.creditNoteFormat ?? DEFAULT_CREDIT_NOTE_FORMAT, {
-    prefix: settings?.invoice?.prefix ?? DEFAULT_INVOICE_PREFIX,
+    prefix: settings?.invoice?.creditNotePrefix ?? 'CN',
     fy,
     seq,
   });

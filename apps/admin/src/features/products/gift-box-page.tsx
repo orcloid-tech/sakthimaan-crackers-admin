@@ -19,6 +19,7 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { ApiError, errorMessage } from '@/lib/api';
 import { money, parseRupees, rupeesText } from '@/lib/format';
 import { fetchComboSuggestion, useCategoryTree, useProduct, useProductMutations } from '../catalog/api';
+import { useRuntimeSettings } from '../settings/api';
 import { ProductThumb, StatusBadge } from './product-bits';
 import { ProductPicker } from './product-picker';
 import {
@@ -100,11 +101,12 @@ function GiftBoxBuilder({ box }: { box: ProductDto | undefined }) {
   });
 
   const [mrpText, discountText] = useWatch({ control: form.control, name: ['mrp', 'discountPct'] });
+  const rounding = useRuntimeSettings().data?.netPriceRounding;
   const mrp = parseRupees(mrpText);
   let net: number | null = null;
   try {
     if (mrp !== null && /^\d+(\.\d{1,2})?$/.test(discountText))
-      net = computeNetPrice(mrp, Number(discountText));
+      net = computeNetPrice(mrp, Number(discountText), rounding);
   } catch {
     net = null;
   }

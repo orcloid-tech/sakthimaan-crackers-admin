@@ -62,6 +62,7 @@ import {
   ShortageDialog,
   VoidPaymentDialog,
 } from './order-dialogs';
+import { DeliveryDetailsDialog } from './delivery-dialog';
 import { PreviewPanel } from './order-form-page';
 import {
   LineEditor,
@@ -81,6 +82,7 @@ type DialogState =
   | { kind: 'cancel' }
   | { kind: 'shortage'; items: ShortageItem[] }
   | { kind: 'packCredit' }
+  | { kind: 'delivery' }
   | null;
 
 const WA_EVENTS: { event: WhatsAppEvent; label: string; when: (o: OrderDto) => boolean }[] = [
@@ -411,7 +413,11 @@ export function OrderDetailPage() {
         </div>
 
         <div className="grid gap-4 lg:sticky lg:top-20">
-          <CustomerCard order={o} />
+          <CustomerCard
+            order={o}
+            profile={can('customers:read')}
+            onEdit={canEditLines ? () => setDialog({ kind: 'delivery' }) : undefined}
+          />
           <DispatchCard
             order={o}
             onEdit={
@@ -428,6 +434,7 @@ export function OrderDetailPage() {
         <VoidPaymentDialog order={o} payment={dialog.payment} onClose={close} />
       ) : null}
       {dialog?.kind === 'cancel' ? <CancelOrderDialog order={o} onClose={close} /> : null}
+      {dialog?.kind === 'delivery' ? <DeliveryDetailsDialog order={o} onClose={close} /> : null}
       {dialog?.kind === 'shortage' ? (
         <ShortageDialog order={o} shortages={dialog.items} onClose={close} />
       ) : null}
@@ -644,13 +651,30 @@ function PaymentsSection({
   );
 }
 
-function CustomerCard({ order: o }: { order: OrderDto }) {
+function CustomerCard({
+  order: o,
+  profile,
+  onEdit,
+}: {
+  order: OrderDto;
+  profile: boolean;
+  onEdit?: () => void;
+}) {
   const a = o.shippingAddress;
   return (
     <Section title="Customer">
       <div className="grid gap-1 text-sm">
         <p className="font-medium">
-          {o.customer.name}
+          {profile ? (
+            <Link
+              to={`/customers/${o.customer.id}`}
+              className="hover:text-primary underline-offset-4 hover:underline"
+            >
+              {o.customer.name}
+            </Link>
+          ) : (
+            o.customer.name
+          )}
           {o.customer.isBlocked ? (
             <Badge variant="destructive" className="ml-2">
               Blocked
@@ -688,6 +712,11 @@ function CustomerCard({ order: o }: { order: OrderDto }) {
         {stateName(a.stateCode)}
         {o.zoneName ? <span className="text-muted-foreground"> · {o.zoneName}</span> : null}
       </address>
+      {onEdit ? (
+        <Button size="sm" variant="outline" className="mt-3" onClick={onEdit}>
+          <Pencil /> Edit delivery details
+        </Button>
+      ) : null}
     </Section>
   );
 }
@@ -788,7 +817,7 @@ function WhatsAppMenu({ order: o, suggested }: { order: OrderDto; suggested?: Wh
 // ------------------------------------------------------------------ timeline
 
 const ACTIVITY_TEXT: Partial<Record<OrderActivityDto['type'], string>> = {
-  items_edited: 'Items edited',
+  items_edited: 'Order edited',
   payment_submitted: 'Payment proof submitted',
   payment_recorded: 'Payment recorded',
   payment_rejected: 'Payment rejected',
@@ -804,7 +833,7 @@ function Timeline({ order: o }: { order: OrderDto }) {
   const { comment } = useOrderMutations(o.id);
   const [text, setText] = useState('');
   const [internal, setInternal] = useState(true);
-  const items = [...o.activity].reverse();
+  const items = o.activity; // newest first, as sent by the API
   const post = () => {
     if (!text.trim()) return;
     comment

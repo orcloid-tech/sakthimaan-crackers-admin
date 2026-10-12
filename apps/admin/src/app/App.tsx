@@ -46,6 +46,18 @@ const OrderFormPage = lazy(() =>
 const OrderDetailPage = lazy(() =>
   import('@/features/orders/order-detail-page').then((m) => ({ default: m.OrderDetailPage })),
 );
+const SettingsPage = lazy(() =>
+  import('@/features/settings/settings-page').then((m) => ({ default: m.SettingsPage })),
+);
+const ShippingPage = lazy(() =>
+  import('@/features/shipping/shipping-page').then((m) => ({ default: m.ShippingPage })),
+);
+const CustomersPage = lazy(() =>
+  import('@/features/customers/customers-page').then((m) => ({ default: m.CustomersPage })),
+);
+const CustomerDetailPage = lazy(() =>
+  import('@/features/customers/customer-detail-page').then((m) => ({ default: m.CustomerDetailPage })),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -201,6 +213,38 @@ const router = createBrowserRouter(
               element: (
                 <RequirePermission anyOf={['inventory:read']}>
                   <ProductLedgerPage />
+                </RequirePermission>
+              ),
+            },
+            {
+              path: 'customers',
+              element: (
+                <RequirePermission anyOf={['customers:read']}>
+                  <CustomersPage />
+                </RequirePermission>
+              ),
+            },
+            {
+              path: 'customers/:id',
+              element: (
+                <RequirePermission anyOf={['customers:read']}>
+                  <CustomerDetailPage />
+                </RequirePermission>
+              ),
+            },
+            {
+              path: 'shipping',
+              element: (
+                <RequirePermission anyOf={['shipping:read']}>
+                  <ShippingPage />
+                </RequirePermission>
+              ),
+            },
+            {
+              path: 'settings',
+              element: (
+                <RequirePermission anyOf={['settings:read']}>
+                  <SettingsPage />
                 </RequirePermission>
               ),
             },

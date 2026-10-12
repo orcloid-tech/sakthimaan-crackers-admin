@@ -1,3 +1,4 @@
+export * from './admin.js';
 export * from './api.js';
 export * from './catalog-import.js';
 export * from './catalog.js';
@@ -10,10 +11,12 @@ export * from './order-workflow.js';
 export * from './orders.js';
 export * from './permissions.js';
 export * from './pricing.js';
+export * from './schemas/admin.schemas.js';
 export * from './schemas/auth.schemas.js';
 export * from './schemas/catalog.schemas.js';
 export * from './schemas/common.schemas.js';
 export * from './schemas/order.schemas.js';
+export * from './schemas/settings.schemas.js';
 export * from './states.js';
 export * from './tax.js';
 export * from './words.js';

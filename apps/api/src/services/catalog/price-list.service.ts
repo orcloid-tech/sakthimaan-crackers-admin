@@ -3,6 +3,7 @@ import { renderPdf, type DocDefinition } from '../pdf.js';
 import type { PriceListQuery } from '@sakthimaan/shared';
 import { CategoryModel, ProductModel, SeasonModel } from '../../models/index.js';
 import { oid } from '../../utils/query.js';
+import type { CompanyAssets } from '../company-assets.js';
 import type { SettingsCache } from '../settings-cache.js';
 
 const money = (paise: number) =>
@@ -16,15 +17,19 @@ const COLORS = { band: '#FEF3C7', header: '#B45309', green: '#15803D', muted: '#
  * for customers who write their order on paper, store licence and GSTIN in the header.
  */
 export class PriceListService {
-  constructor(private readonly settings: SettingsCache) {}
+  constructor(
+    private readonly settings: SettingsCache,
+    private readonly assets?: CompanyAssets,
+  ) {}
 
   async render(q: PriceListQuery): Promise<Buffer> {
-    const [settings, categories, season] = await Promise.all([
+    const [settings, categories, season, logo] = await Promise.all([
       this.settings.get(),
       CategoryModel.find({ isActive: true }).sort({ sortOrder: 1, name: 1 }).lean(),
       SeasonModel.findOne({ endDate: { $gte: new Date() } })
         .sort({ startDate: 1 })
         .lean(),
+      this.assets?.logo() ?? null,
     ]);
 
     const productFilter: Record<string, unknown> = { isActive: true };
@@ -140,6 +145,15 @@ export class PriceListService {
             {
               width: '*',
               stack: [
+                ...(logo
+                  ? [
+                      {
+                        image: logo,
+                        fit: [150, 50] as [number, number],
+                        margin: [0, 0, 0, 4] as [number, number, number, number],
+                      },
+                    ]
+                  : []),
                 { text: company?.name || 'Sakthimaan Crackers', style: 'company' },
                 ...(address ? [{ text: address, fontSize: 8 }] : []),
                 ...(company?.phones?.length

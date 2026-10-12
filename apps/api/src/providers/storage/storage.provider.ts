@@ -28,6 +28,8 @@ export interface PutFileInput {
 export interface StorageProvider {
   readonly name: StorageProviderName;
   put(input: PutFileInput): Promise<StoredFile>;
+  /** The stored bytes (e.g. to embed the company logo in a PDF). */
+  read(file: Pick<StoredFile, 'key' | 'url'>): Promise<Buffer>;
   /** Idempotent: removing a missing file is not an error. */
   remove(key: string): Promise<void>;
 }

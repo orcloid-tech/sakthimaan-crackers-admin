@@ -137,6 +137,7 @@ export const orderListQuery = z.object({
   status: z.enum(ORDER_STATUSES).optional(),
   paymentStatus: z.enum(PAYMENT_STATUSES).optional(),
   stateCode: z.enum(INDIAN_STATE_CODES).optional(),
+  customerId: objectIdSchema.optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
   /** Order number, phone (any part), customer name or LR number. */

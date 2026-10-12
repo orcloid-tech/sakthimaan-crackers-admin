@@ -9,9 +9,16 @@ import {
 } from '../../models/index.js';
 import { notFound } from '../../utils/app-error.js';
 import { PDF_COLORS, pdfDate, pdfMoney, renderPdf, thinTableLayout, type DocDefinition } from '../pdf.js';
+import type { CompanyAssets } from '../company-assets.js';
 import type { SettingsCache } from '../settings-cache.js';
 
 type TaxDoc = (Invoice | CreditNote) & { createdAt?: Date };
+
+type Column = Extract<Content, { columns: unknown }>['columns'][number];
+
+/** Small logo at the left of a header row (nothing when there is no logo). */
+const logoColumn = (logo: string | null): Column[] =>
+  logo ? [{ image: logo, fit: [110, 40], width: 110, margin: [0, 0, 10, 0] }] : [];
 
 const stateName = (code: string) => INDIAN_STATES.find((s) => s.code === code)?.name ?? code;
 const stateLabel = (code: string) => {
@@ -49,7 +56,10 @@ function addressLines(
  * rendered only from their own frozen snapshot, so a reprint years later is identical.
  */
 export class OrderDocuments {
-  constructor(private readonly settings: SettingsCache) {}
+  constructor(
+    private readonly settings: SettingsCache,
+    private readonly assets?: CompanyAssets,
+  ) {}
 
   async invoicePdf(orderId: string): Promise<{ buffer: Buffer; filename: string }> {
     const order = await OrderModel.findById(orderId).select('invoice').lean();
@@ -89,6 +99,7 @@ export class OrderDocuments {
     }
     const buffer = await renderPdf(
       taxDocument(invoice, {
+        logo: (await this.assets?.logo()) ?? null,
         title: invoice.status === 'cancelled' ? 'TAX INVOICE (CANCELLED)' : 'TAX INVOICE',
         numberLabel: 'Invoice No',
         reference:
@@ -108,6 +119,7 @@ export class OrderDocuments {
     if (!cn) throw notFound('Credit note');
     const buffer = await renderPdf(
       taxDocument(cn, {
+        logo: (await this.assets?.logo()) ?? null,
         title: 'CREDIT NOTE',
         numberLabel: 'Credit Note No',
         reference: `Against invoice ${cn.invoiceNumber} dated ${pdfDate(cn.invoiceDate)}. Reason: ${cn.reason || cn.reasonCode.replace('_', ' ')}`,
@@ -122,7 +134,7 @@ export class OrderDocuments {
   async packingSlipPdf(orderId: string): Promise<{ buffer: Buffer; filename: string }> {
     const o = await OrderModel.findById(orderId).lean();
     if (!o) throw notFound('Order');
-    const settings = await this.settings.get();
+    const [settings, logo] = await Promise.all([this.settings.get(), this.assets?.logo() ?? null]);
     const totalQty = o.items.reduce((s, i) => s + i.qty, 0);
     const body: TableCell[][] = [
       ['#', 'SKU', 'Item', 'Pack', 'Qty', 'Packed'].map((t) => ({
@@ -169,6 +181,7 @@ export class OrderDocuments {
       content: [
         {
           columns: [
+            ...logoColumn(logo),
             {
               text: [
                 { text: 'PACKING SLIP\n', fontSize: 16, bold: true, color: PDF_COLORS.brand },
@@ -250,6 +263,7 @@ export class OrderDocuments {
 function taxDocument(
   d: TaxDoc,
   opts: {
+    logo: string | null;
     title: string;
     numberLabel: string;
     reference: string | null;
@@ -330,6 +344,15 @@ function taxDocument(
         columns: [
           {
             stack: [
+              ...(opts.logo
+                ? [
+                    {
+                      image: opts.logo,
+                      fit: [140, 48] as [number, number],
+                      margin: [0, 0, 0, 4] as [number, number, number, number],
+                    },
+                  ]
+                : []),
               { text: s.name, fontSize: 15, bold: true, color: PDF_COLORS.brand },
               ...(s.legalName && s.legalName !== s.name ? [{ text: s.legalName, fontSize: 8 }] : []),
               { text: addressLines(s.address), fontSize: 8 },

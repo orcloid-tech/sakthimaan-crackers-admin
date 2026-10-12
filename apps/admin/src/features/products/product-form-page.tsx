@@ -30,6 +30,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { ApiError, errorMessage } from '@/lib/api';
 import { money, parseRupees, rupeesText } from '@/lib/format';
 import { useCategoryTree, useProduct, useProductMutations } from '../catalog/api';
+import { useRuntimeSettings } from '../settings/api';
 import { ProductImages } from './product-images';
 import { StatusBadge } from './product-bits';
 
@@ -530,13 +531,19 @@ function PricingSection({
     name: ['mrp', 'discountPct', 'hsn', 'taxRate', 'categoryId', 'subCategoryId'],
   });
 
-  // Live preview with the same shared function the API uses (default rounding; see TODO-HARDENING #6).
+  // Live preview with the same shared function and settings (rounding, tax defaults) the API uses.
+  const runtime = useRuntimeSettings().data;
+  const rounding = runtime?.netPriceRounding;
+  const defaults = useMemo(
+    () => ({ hsn: runtime?.defaultHsn ?? DEFAULT_HSN, taxRate: runtime?.defaultTaxRate ?? DEFAULT_TAX_RATE }),
+    [runtime?.defaultHsn, runtime?.defaultTaxRate],
+  );
   const preview = useMemo(() => {
     const mrp = parseRupees(mrpText);
     const pct = Number(discountText);
     if (mrp === null || !/^\d+(\.\d{1,2})?$/.test(discountText.trim()) || pct > 100) return null;
     try {
-      const net = computeNetPrice(mrp, pct);
+      const net = computeNetPrice(mrp, pct, rounding);
       const cat = categories.find((c) => c.id === categoryId);
       const sub = cat?.children.find((s) => s.id === subCategoryId);
       const inherited =
@@ -546,14 +553,14 @@ function PricingSection({
       const tax = resolveTax(
         { hsn: hsn || null, taxRate: taxRate === '' ? null : Number(taxRate) },
         inherited,
-        { hsn: DEFAULT_HSN, taxRate: DEFAULT_TAX_RATE },
+        defaults,
       );
       const split = splitInclusiveGst(net, tax.taxRate);
       return { mrp, net, saving: mrp - net, tax, split };
     } catch {
       return null;
     }
-  }, [mrpText, discountText, hsn, taxRate, categoryId, subCategoryId, categories]);
+  }, [mrpText, discountText, hsn, taxRate, categoryId, subCategoryId, categories, rounding, defaults]);
 
   return (
     <Section

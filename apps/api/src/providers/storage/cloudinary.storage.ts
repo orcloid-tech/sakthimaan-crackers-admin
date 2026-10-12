@@ -1,6 +1,8 @@
 import { v2 as cloudinary, type UploadApiResponse } from 'cloudinary';
 import type { PutFileInput, StorageProvider, StoredFile } from './storage.provider.js';
 
+const MAX_READ_BYTES = 8 * 1024 * 1024;
+
 /**
  * Production storage. Images are uploaded already sanitised and re-encoded (WebP), and
  * served from Cloudinary's CDN; on-the-fly resizing uses shared `imageUrl()`.
@@ -45,6 +47,17 @@ export class CloudinaryStorage implements StorageProvider {
       bytes: result.bytes,
       mimeType: input.contentType,
     };
+  }
+
+  async read(file: Pick<StoredFile, 'key' | 'url'>): Promise<Buffer> {
+    const url = new URL(file.url);
+    if (url.protocol !== 'https:' || url.hostname !== 'res.cloudinary.com')
+      throw new Error('Unexpected image host');
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) throw new Error(`Image download failed (${res.status})`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.byteLength > MAX_READ_BYTES) throw new Error('Image too large');
+    return buf;
   }
 
   async remove(key: string): Promise<void> {

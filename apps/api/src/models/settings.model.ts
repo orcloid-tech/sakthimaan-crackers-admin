@@ -12,6 +12,7 @@ import {
   NET_PRICE_ROUNDING_MODES,
   NOTIFICATION_CHANNELS,
   ORDER_MODES,
+  WHATSAPP_EVENTS,
 } from '@sakthimaan/shared';
 import { GSTIN_REGEX, MOBILE_REGEX, addressSchema, imageSchema } from './common.schemas.js';
 
@@ -75,6 +76,8 @@ const settingsSchema = new Schema(
     invoice: {
       // Tokens: {PREFIX} {FY} {SEQ:n}. Numbers restart every financial year (April–March).
       prefix: { type: String, default: DEFAULT_INVOICE_PREFIX, required: true },
+      // {PREFIX} in the credit note format (the default format spells out CN).
+      creditNotePrefix: { type: String, default: 'CN', required: true },
       format: { type: String, default: DEFAULT_INVOICE_FORMAT, required: true }, // SMC/26-27/00042
       creditNoteFormat: { type: String, default: DEFAULT_CREDIT_NOTE_FORMAT, required: true }, // CN/26-27/00001
       terms: { type: String, maxlength: 2000 },
@@ -115,6 +118,20 @@ const settingsSchema = new Schema(
       // No provider yet: staff use generated wa.me links. Provider channels plug in later.
       enabledChannels: { type: [{ type: String, enum: NOTIFICATION_CHANNELS }], default: [] },
       adminAlertEmails: { type: [String], default: [] },
+    },
+
+    // Customised WhatsApp messages; events not listed use DEFAULT_WHATSAPP_MESSAGES.
+    whatsappTemplates: {
+      type: [
+        new Schema(
+          {
+            event: { type: String, enum: WHATSAPP_EVENTS, required: true },
+            message: { type: String, required: true, maxlength: 1000 },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
     },
 
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },

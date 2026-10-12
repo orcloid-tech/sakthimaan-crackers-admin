@@ -54,6 +54,20 @@ import { DashboardService } from './services/orders/dashboard.service.js';
 import { OrderBuilder } from './services/orders/order-builder.js';
 import { OrderDocuments } from './services/orders/order-documents.js';
 import { OrderService } from './services/orders/order.service.js';
+import {
+  createCustomerController,
+  createSettingsController,
+  createShippingController,
+} from './controllers/admin.controller.js';
+import {
+  createCustomersRouter,
+  createSettingsRouter,
+  createShippingRouter,
+} from './routes/v1/admin.routes.js';
+import { CompanyAssets } from './services/company-assets.js';
+import { CustomerService } from './services/customer.service.js';
+import { SettingsService } from './services/settings.service.js';
+import { ShippingService } from './services/shipping.service.js';
 
 export const API_VERSION = '0.1.0';
 
@@ -83,6 +97,9 @@ export interface AppContainer {
     priceList: PriceListService;
     orders: OrderService;
     dashboard: DashboardService;
+    settingsService: SettingsService;
+    shipping: ShippingService;
+    customers: CustomerService;
   };
   docs: ApiDocs;
 }
@@ -112,11 +129,15 @@ export function createApp(deps: AppDeps): AppContainer {
   const categories = new CategoryService(audit, storage);
   const products = new ProductService({ audit, inventory, storage, settings });
   const productIo = new ProductIoService({ audit, inventory, settings, maxRows: env.IMPORT_MAX_ROWS });
-  const priceList = new PriceListService(settings);
+  const companyAssets = new CompanyAssets(storage, settings, logger);
+  const priceList = new PriceListService(settings, companyAssets);
   const orderBuilder = new OrderBuilder(settings);
   const orders = new OrderService({ audit, inventory, settings, builder: orderBuilder, storage });
-  const orderDocuments = new OrderDocuments(settings);
+  const orderDocuments = new OrderDocuments(settings, companyAssets);
   const dashboard = new DashboardService();
+  const settingsService = new SettingsService({ audit, cache: settings, storage });
+  const shipping = new ShippingService({ audit, settings });
+  const customers = new CustomerService({ audit });
 
   const app = express();
   app.disable('x-powered-by');
@@ -259,6 +280,16 @@ export function createApp(deps: AppDeps): AppContainer {
         { path: '/orders', router: orderRoutes.orders },
         { path: '/payments', router: orderRoutes.payments },
         { path: '/', router: orderRoutes.misc },
+        {
+          path: '/settings',
+          router: createSettingsRouter(
+            createSettingsController(settingsService),
+            docs,
+            imageUpload({ maxMb: env.UPLOAD_MAX_IMAGE_MB, maxFiles: 1 }),
+          ),
+        },
+        { path: '/shipping', router: createShippingRouter(createShippingController(shipping), docs) },
+        { path: '/customers', router: createCustomersRouter(createCustomerController(customers), docs) },
       ],
     }),
   );
@@ -281,6 +312,9 @@ export function createApp(deps: AppDeps): AppContainer {
       priceList,
       orders,
       dashboard,
+      settingsService,
+      shipping,
+      customers,
     },
     docs,
   };

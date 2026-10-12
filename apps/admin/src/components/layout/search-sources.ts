@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { ClipboardList, Package, Phone } from 'lucide-react';
-import type { OrderListItem, Permission, ProductDto } from '@sakthimaan/shared';
+import type { CustomerListItem, OrderListItem, Permission, ProductDto } from '@sakthimaan/shared';
 import { api } from '@/lib/api';
 import { money } from '@/lib/format';
 
@@ -61,28 +61,22 @@ export const searchSources: SearchSource[] = [
     },
   },
   {
-    key: 'phone',
-    label: 'Customers by phone',
-    placeholder: 'customer phone',
+    key: 'customers',
+    label: 'Customers',
+    placeholder: 'customer name or phone',
     icon: Phone,
-    permissions: ['orders:read'],
-    matches: isPhoneLike,
+    permissions: ['customers:read'],
+    // Phone digits, or a name (letters) of 3+ characters.
+    matches: (q) => isPhoneLike(q) || (/[a-z]/i.test(q) && q.trim().length >= 3 && !isOrderLike(q)),
     search: async (q, signal) => {
-      const digits = digitsOf(q).replace(/^(91|0)(?=\d{10}$)/, '');
-      const res = await api.get<OrderListItem[]>('/orders', { q: digits, pageSize: 25 }, signal);
-      // One row per customer, linking to their orders.
-      const byCustomer = new Map<string, { o: OrderListItem; count: number }>();
-      for (const o of res.data) {
-        const hit = byCustomer.get(o.customer.id);
-        if (hit) hit.count += 1;
-        else byCustomer.set(o.customer.id, { o, count: 1 });
-      }
-      return [...byCustomer.values()].slice(0, 6).map(({ o, count }) => ({
-        id: o.customer.id,
-        title: o.customer.name,
-        subtitle: `${o.customer.phone} · ${o.city}`,
-        meta: count === 1 ? '1 order' : `${count} orders`,
-        to: `/orders?q=${o.customer.phone}`,
+      const term = isPhoneLike(q) ? digitsOf(q).replace(/^(91|0)(?=\d{10}$)/, '') : q;
+      const res = await api.get<CustomerListItem[]>('/customers', { q: term, pageSize: 6 }, signal);
+      return res.data.map((c) => ({
+        id: c.id,
+        title: c.name,
+        subtitle: [c.phone, c.city].filter(Boolean).join(' · '),
+        meta: c.orderCount === 1 ? '1 order' : `${c.orderCount} orders`,
+        to: `/customers/${c.id}`,
       }));
     },
   },

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, ChevronLeft, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { INDIAN_STATES, type IndianStateCode } from '@sakthimaan/shared';
@@ -120,7 +120,9 @@ export function PreviewPanel({
 /** Order taken over the phone or WhatsApp. Starts as an enquiry; confirm it from the order page. */
 export function OrderFormPage() {
   const navigate = useNavigate();
-  const [f, setF] = useState<FormState>(EMPTY);
+  const [params] = useSearchParams();
+  // "New order" from a customer's profile passes their number; the lookup fills in the rest.
+  const [f, setF] = useState<FormState>(() => ({ ...EMPTY, phone: params.get('phone') ?? '' }));
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<ReturnType<typeof usePricingPreview>['data']>();
