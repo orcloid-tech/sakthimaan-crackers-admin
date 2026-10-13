@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { EnvValidationError, deploymentWarnings, loadEnv } from '../src/config/env.js';
+import { EnvValidationError, deploymentWarnings, loadEnv, withVercelPreviewUrls } from '../src/config/env.js';
 import { SETTINGS_ID, SettingsModel } from '../src/models/index.js';
 import { PASSWORD, buildTestApp, createUser, setCookieHeader, testEnv } from './helpers/app.js';
 import { useTestDb } from './helpers/db.js';
@@ -94,6 +94,38 @@ describe('env validation', () => {
       deploymentWarnings(testEnv({ CORS_ADMIN_ORIGINS: 'https://sakthi-admin.onrender.com' }))[0],
     ).toMatch(/shared hosting domain/);
     expect(deploymentWarnings(testEnv({ CORS_ADMIN_ORIGINS: 'https://admin.sakthimaan.in' }))).toEqual([]);
+    // Same origin as the API (one Vercel project): the cookie is first-party.
+    expect(
+      deploymentWarnings(
+        testEnv({
+          CORS_ADMIN_ORIGINS: 'https://sakthimaan.vercel.app',
+          PUBLIC_API_URL: 'https://sakthimaan.vercel.app',
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('accepts the admin from its own URLs on a Vercel preview only', () => {
+    const vercel = {
+      ...base,
+      CORS_ADMIN_ORIGINS: 'https://admin.sakthimaan.in',
+      VERCEL_URL: 'app-abc123.vercel.app',
+      VERCEL_BRANCH_URL: 'app-git-feature.vercel.app',
+    };
+    const preview = loadEnv(withVercelPreviewUrls({ ...vercel, VERCEL_ENV: 'preview' }));
+    expect(preview.CORS_ADMIN_ORIGINS).toEqual([
+      'https://admin.sakthimaan.in',
+      'https://app-git-feature.vercel.app',
+      'https://app-abc123.vercel.app',
+    ]);
+    expect(preview).toMatchObject({
+      ADMIN_APP_URL: 'https://app-git-feature.vercel.app',
+      PUBLIC_API_URL: 'https://app-git-feature.vercel.app',
+    });
+
+    const production = loadEnv(withVercelPreviewUrls({ ...vercel, VERCEL_ENV: 'production' }));
+    expect(production.CORS_ADMIN_ORIGINS).toEqual(['https://admin.sakthimaan.in']);
+    expect(production.ADMIN_APP_URL).toBe('https://admin.example.com');
   });
 
   it('sets Domain on the refresh cookie only when COOKIE_DOMAIN is configured', async () => {

@@ -77,6 +77,10 @@ admin and the API are on the **same registrable domain**, for example:
 [Public Suffix List](https://publicsuffix.org/): each subdomain counts as a separate site. A `SameSite=Strict/Lax`
 cookie is then never sent, and `SameSite=None` makes it a third-party cookie, which Safari and Chrome block.
 Users would be signed out on every page reload. **Attach custom domains (`admin.` and `api.`) to both services before go-live.**
+Deploying both as one Vercel project (`vercel.json` services) avoids this: the admin and `/api/*` share one origin, so leave
+`VITE_API_URL` unset and set `CORS_ADMIN_ORIGINS`, `ADMIN_APP_URL` and `PUBLIC_API_URL` to that domain, with `TRUST_PROXY=1`
+and `STORAGE_PROVIDER=cloudinary` (the function filesystem is read-only).
+Preview deployments add their own URLs to the admin origins automatically; give the Preview environment its own `MONGODB_URI`.
 The API logs a warning at startup when an admin origin is on one of these domains, and refuses a `COOKIE_DOMAIN` on them.
 
 Relevant settings (`apps/api/.env`): `CORS_ADMIN_ORIGINS`, `COOKIE_SAMESITE` (default `strict`), `COOKIE_SECURE`

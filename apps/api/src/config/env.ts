@@ -243,7 +243,10 @@ export function deploymentWarnings(env: Env): string[] {
       'STORAGE_PROVIDER=local in production: uploads are lost on redeploy on Render/Railway (ephemeral disk). Use cloudinary.',
     );
   }
+  const apiOrigin = env.PUBLIC_API_URL ? new URL(env.PUBLIC_API_URL).origin : null;
   for (const origin of env.CORS_ADMIN_ORIGINS) {
+    // Admin and API on one origin (e.g. one Vercel project): the cookie is first-party.
+    if (new URL(origin).origin === apiOrigin) continue;
     const host = new URL(origin).hostname;
     if (SHARED_HOSTING_SUFFIXES.some((s) => isWithinDomain(host, s))) {
       warnings.push(
@@ -253,6 +256,23 @@ export function deploymentWarnings(env: Env): string[] {
     }
   }
   return warnings;
+}
+
+/**
+ * Vercel preview deployments are served from their own URLs (per deployment and per
+ * branch), which no fixed CORS_ADMIN_ORIGINS can list. On a preview, accept the admin from
+ * those URLs and point reset links and image URLs at the preview. Production and every
+ * other host are left as configured.
+ */
+export function withVercelPreviewUrls(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  if (source.VERCEL_ENV !== 'preview') return source;
+  const urls = [source.VERCEL_BRANCH_URL, source.VERCEL_URL]
+    .filter((host): host is string => !!host)
+    .map((host) => `https://${host}`);
+  const [primary] = urls;
+  if (!primary) return source;
+  const origins = [source.CORS_ADMIN_ORIGINS, ...urls].filter(Boolean).join(',');
+  return { ...source, CORS_ADMIN_ORIGINS: origins, ADMIN_APP_URL: primary, PUBLIC_API_URL: primary };
 }
 
 export class EnvValidationError extends Error {
