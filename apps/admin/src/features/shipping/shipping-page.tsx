@@ -62,7 +62,7 @@ export function ShippingPage() {
         description="Which states and cities you deliver to, minimum order values and delivery charges. Changes apply to the next order."
       />
       <Tabs value={tab} onValueChange={(v) => setParams({ tab: v }, { replace: true })}>
-        <div className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="-mx-3 mb-4 overflow-x-auto px-3 sm:mx-0 sm:px-0">
           <TabsList className="w-max">
             <TabsTrigger value="states">States</TabsTrigger>
             <TabsTrigger value="zones">Zones</TabsTrigger>

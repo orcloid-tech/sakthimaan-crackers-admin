@@ -42,7 +42,12 @@ function Kpi({
   pending?: boolean;
 }) {
   const body = (
-    <Card className={cn('h-full transition-colors', to && 'hover:border-primary/50')}>
+    <Card
+      className={cn(
+        'h-full transition-colors max-sm:[--card-spacing:--spacing(3)]',
+        to && 'hover:border-primary/50',
+      )}
+    >
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
         <CardDescription>{label}</CardDescription>
         <Icon
@@ -55,7 +60,10 @@ function Kpi({
           <Skeleton className="h-8 w-20" />
         ) : (
           <p
-            className={cn('text-2xl font-semibold tabular-nums', tone === 'muted' && 'text-muted-foreground')}
+            className={cn(
+              'text-xl font-semibold break-words tabular-nums sm:text-2xl',
+              tone === 'muted' && 'text-muted-foreground',
+            )}
           >
             {value}
           </p>
@@ -163,7 +171,7 @@ export function DashboardPage() {
         </div>
       ) : null}
 
-      <section aria-label="Key figures" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section aria-label="Key figures" className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
         <Kpi
           label="Today's sales"
           value={money(d?.today.sales ?? 0)}

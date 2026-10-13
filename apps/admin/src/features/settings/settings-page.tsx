@@ -79,7 +79,7 @@ export function SettingsPage() {
       />
       <SetupChecklist setup={s?.setup} />
       <Tabs value={tab} onValueChange={(v) => setParams({ tab: v }, { replace: true })}>
-        <div className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="-mx-3 mb-4 overflow-x-auto px-3 sm:mx-0 sm:px-0">
           <TabsList className="w-max">
             {TABS.map((t) => (
               <TabsTrigger key={t.value} value={t.value}>
@@ -199,7 +199,7 @@ function WhatsAppSection({ s, canEdit }: { s: SettingsDto; canEdit: boolean }) {
                 <li key={e} className="p-3">
                   <button
                     type="button"
-                    className="flex w-full items-start justify-between gap-3 text-left"
+                    className="flex min-h-11 w-full items-start justify-between gap-3 text-left"
                     aria-expanded={expanded}
                     onClick={() => setOpen(expanded ? null : e)}
                   >

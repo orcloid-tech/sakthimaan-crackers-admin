@@ -5,6 +5,7 @@ import { INDIAN_STATES, type CustomerListItem } from '@sakthimaan/shared';
 import { EmptyState, ErrorState, PageHeader, Pagination, TableSkeleton } from '@/components/common';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { FilterBar } from '@/components/responsive';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDebounced } from '@/hooks/use-debounced';
@@ -67,26 +68,37 @@ export function CustomersPage() {
         title="Customers"
         description="Added automatically when someone places an order or enquiry."
       />
-      <div className="mb-4 grid grid-cols-2 gap-2 lg:flex lg:flex-wrap">
-        <div className="relative col-span-2 lg:w-72">
-          <Search
-            className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
-            aria-hidden
-          />
-          <Input
-            type="search"
-            aria-label="Search customers"
-            placeholder="Name, phone, email, GSTIN or tag"
-            className="pl-8"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setParam('q', e.target.value.trim() || null);
-            }}
-          />
-        </div>
+      <FilterBar
+        active={(status !== 'all' ? 1 : 0) + (stateCode !== 'all' ? 1 : 0)}
+        onClear={() => {
+          const next = new URLSearchParams();
+          if (q) next.set('q', q);
+          if (params.get('sort')) next.set('sort', sort);
+          setParams(next, { replace: true });
+        }}
+        search={
+          <div className="relative lg:w-72">
+            <Search
+              className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+              aria-hidden
+            />
+            <Input
+              type="search"
+              aria-label="Search customers"
+              placeholder="Name, phone, email, GSTIN or tag"
+              className="pl-8"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setParam('q', e.target.value.trim() || null);
+              }}
+              enterKeyHint="search"
+            />
+          </div>
+        }
+      >
         <Select value={status} onValueChange={(v) => setParam('status', v)}>
-          <SelectTrigger className="w-full lg:w-40" aria-label="Status">
+          <SelectTrigger className="w-full md:w-40" aria-label="Status">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -96,7 +108,7 @@ export function CustomersPage() {
           </SelectContent>
         </Select>
         <Select value={sort} onValueChange={(v) => setParam('sort', v)}>
-          <SelectTrigger className="w-full lg:w-40" aria-label="Sort by">
+          <SelectTrigger className="w-full md:w-40" aria-label="Sort by">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -108,7 +120,7 @@ export function CustomersPage() {
           </SelectContent>
         </Select>
         <Select value={stateCode} onValueChange={(v) => setParam('state', v)}>
-          <SelectTrigger className="col-span-2 w-full lg:w-44" aria-label="State">
+          <SelectTrigger className="w-full md:w-44" aria-label="State">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -120,7 +132,7 @@ export function CustomersPage() {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </FilterBar>
 
       {list.isError ? (
         <ErrorState error={list.error} onRetry={() => void list.refetch()} />

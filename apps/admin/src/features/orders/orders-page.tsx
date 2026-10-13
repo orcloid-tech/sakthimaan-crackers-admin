@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Search, X } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import {
   INDIAN_STATES,
   ORDER_STATUSES,
@@ -10,6 +10,7 @@ import {
 } from '@sakthimaan/shared';
 import { EmptyState, ErrorState, PageHeader, Pagination, TableSkeleton } from '@/components/common';
 import { Can } from '@/components/guards';
+import { FilterBar } from '@/components/responsive';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -84,7 +85,7 @@ export function OrdersPage() {
 
       {/* Status chips: the most used filter, one tap on a phone. */}
       <div
-        className="-mx-4 mb-3 flex gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
+        className="-mx-3 mb-3 flex gap-1.5 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
         role="group"
         aria-label="Status"
       >
@@ -102,26 +103,37 @@ export function OrdersPage() {
         ))}
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-end">
-        <div className="relative col-span-2 lg:w-72">
-          <Search
-            className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
-            aria-hidden
-          />
-          <Input
-            type="search"
-            aria-label="Search orders"
-            placeholder="Order no., phone, name or LR"
-            className="pl-8"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setParam('q', e.target.value.trim() || null);
-            }}
-          />
-        </div>
+      <FilterBar
+        active={(paymentStatus !== 'all' ? 1 : 0) + (stateCode !== 'all' ? 1 : 0) + (from || to ? 1 : 0)}
+        onClear={() => {
+          const next = new URLSearchParams();
+          if (q) next.set('q', q);
+          if (status !== 'all') next.set('status', status);
+          setParams(next, { replace: true });
+        }}
+        search={
+          <div className="relative lg:w-72">
+            <Search
+              className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+              aria-hidden
+            />
+            <Input
+              type="search"
+              enterKeyHint="search"
+              aria-label="Search orders"
+              placeholder="Order no., phone, name or LR"
+              className="pl-8"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setParam('q', e.target.value.trim() || null);
+              }}
+            />
+          </div>
+        }
+      >
         <Select value={paymentStatus} onValueChange={(v) => setParam('payment', v)}>
-          <SelectTrigger className="w-full lg:w-36" aria-label="Payment">
+          <SelectTrigger className="w-full md:w-36" aria-label="Payment">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -134,7 +146,7 @@ export function OrdersPage() {
           </SelectContent>
         </Select>
         <Select value={stateCode} onValueChange={(v) => setParam('state', v)}>
-          <SelectTrigger className="w-full lg:w-44" aria-label="State">
+          <SelectTrigger className="w-full md:w-44" aria-label="State">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -146,11 +158,11 @@ export function OrdersPage() {
             ))}
           </SelectContent>
         </Select>
-        <div className="col-span-2 flex items-center gap-2 lg:col-span-1">
+        <div className="flex items-center gap-2">
           <Input
             type="date"
             aria-label="From date"
-            className="min-w-0 lg:w-40"
+            className="min-w-0 md:w-40"
             value={from}
             max={to || undefined}
             onChange={(e) => setParam('from', e.target.value)}
@@ -159,24 +171,13 @@ export function OrdersPage() {
           <Input
             type="date"
             aria-label="To date"
-            className="min-w-0 lg:w-40"
+            className="min-w-0 md:w-40"
             value={to}
             min={from || undefined}
             onChange={(e) => setParam('to', e.target.value)}
           />
         </div>
-        {filtered ? (
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setSearch('');
-              setParams(new URLSearchParams(), { replace: true });
-            }}
-          >
-            <X /> Clear
-          </Button>
-        ) : null}
-      </div>
+      </FilterBar>
 
       {list.isError ? (
         <ErrorState error={list.error} onRetry={() => void list.refetch()} />

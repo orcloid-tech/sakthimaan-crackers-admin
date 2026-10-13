@@ -232,7 +232,7 @@ export function ReportsPage() {
         value={k}
         onValueChange={(v) => navigate({ pathname: `/reports/${v}`, search: params.toString() })}
       >
-        <div className="-mx-4 mb-3 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="-mx-3 mb-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
           <TabsList className="w-max">
             {REPORT_KINDS.map((r) => (
               <TabsTrigger key={r} value={r}>

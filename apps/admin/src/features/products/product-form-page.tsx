@@ -16,6 +16,7 @@ import {
   type ProductDto,
 } from '@sakthimaan/shared';
 import { ErrorState, Field, PageHeader, Section, Spinner } from '@/components/common';
+import { StickyActions } from '@/components/responsive';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Can } from '@/components/guards';
 import { Button } from '@/components/ui/button';
@@ -259,7 +260,7 @@ function ProductForm({ product }: { product: ProductDto | undefined }) {
         back={
           <Link
             to="/products"
-            className="text-muted-foreground hover:text-foreground mb-1 inline-flex items-center gap-1 text-sm"
+            className="text-muted-foreground hover:text-foreground mb-1 inline-flex items-center gap-1 text-sm max-lg:-ml-2 max-lg:min-h-11 max-lg:px-2"
           >
             <ArrowLeft className="size-4" aria-hidden /> Products
           </Link>
@@ -369,7 +370,7 @@ function ProductForm({ product }: { product: ProductDto | undefined }) {
             </div>
           </Section>
           {canEdit ? (
-            <div className="bg-background/95 sticky bottom-0 -mx-3 flex gap-2 border-t p-3 sm:mx-0 sm:rounded-xl sm:border lg:static">
+            <div className="hidden gap-2 lg:flex">
               <Button
                 type="button"
                 variant="outline"
@@ -392,6 +393,27 @@ function ProductForm({ product }: { product: ProductDto | undefined }) {
             <p className="text-muted-foreground text-sm">You can view this product but not edit it.</p>
           )}
         </aside>
+        {canEdit ? (
+          <StickyActions className="lg:hidden">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              disabled={!form.formState.isDirty || isSubmitting}
+              onClick={() => form.reset(toFormValues(product))}
+            >
+              Discard
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1"
+              disabled={isSubmitting || (!!product && !form.formState.isDirty)}
+            >
+              {isSubmitting ? <Spinner /> : null}
+              {product ? 'Save changes' : 'Create product'}
+            </Button>
+          </StickyActions>
+        ) : null}
       </form>
     </>
   );

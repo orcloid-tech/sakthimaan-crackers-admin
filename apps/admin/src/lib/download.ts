@@ -17,10 +17,25 @@ export async function downloadFile(
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-/** Opens an authenticated PDF in a new tab (falls back to download if pop-ups are blocked). */
+/**
+ * Phones and tablets: a blob URL in a new tab often opens blank (Android) or traps the user in a
+ * tab with no way back, so there we save the file instead and the system viewer opens it.
+ */
+const isTouchDevice = () =>
+  typeof window !== 'undefined' && window.matchMedia('(pointer: coarse) and (max-width: 1279.98px)').matches;
+
+/** Opens an authenticated PDF in a new tab on desktop; downloads it on phones and tablets. */
 export async function openPdf(path: string, query: Query | undefined, fallbackName: string): Promise<void> {
+  if (isTouchDevice()) return downloadFile(path, query, fallbackName);
   const tab = window.open('', '_blank');
-  const { blob, filename } = await api.blob(path, query);
+  let blob: Blob;
+  let filename: string | null;
+  try {
+    ({ blob, filename } = await api.blob(path, query));
+  } catch (err) {
+    tab?.close();
+    throw err;
+  }
   const url = URL.createObjectURL(blob);
   if (tab) {
     tab.location.href = url;

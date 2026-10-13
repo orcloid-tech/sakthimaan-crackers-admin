@@ -1,6 +1,19 @@
 import { Suspense, useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LogOut, Menu, Monitor, Moon, Sun, UserRound } from 'lucide-react';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import {
+  ClipboardList,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Monitor,
+  Moon,
+  MoreHorizontal,
+  Package,
+  Sun,
+  UserRound,
+  Warehouse,
+} from 'lucide-react';
+import type { Permission } from '@sakthimaan/shared';
 import { ROLE_LABELS } from '@sakthimaan/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,13 +45,16 @@ import { TableSkeleton } from '../common';
 import { GlobalSearch } from './global-search';
 import { NAV } from './nav';
 
-/** Store name and logo from Settings; neutral "Store admin" until they are entered. */
-function Brand() {
+/**
+ * Store name and logo from Settings; neutral "Store admin" until they are entered.
+ * `compact` (phone header): the logo alone when there is one, so search and the menus fit.
+ */
+function Brand({ compact = false }: { compact?: boolean }) {
   const brand = useBranding().data;
   return (
-    <Link to="/" className="flex min-w-0 items-center gap-2 px-2 py-1 font-semibold">
+    <Link to="/" className="flex min-h-11 min-w-0 items-center gap-2 px-2 py-1 font-semibold">
       <BrandMark logoUrl={brand?.logoUrl} />
-      <span className="min-w-0 leading-tight">
+      <span className={cn('min-w-0 leading-tight', compact && brand?.logoUrl && 'max-sm:sr-only')}>
         <span className="block truncate">{brand?.storeName ?? 'Store admin'}</span>
         <span className="text-muted-foreground block text-xs font-normal">Admin</span>
       </span>
@@ -81,7 +97,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                       onClick={onNavigate}
                       className={({ isActive }) =>
                         cn(
-                          'flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition-colors',
+                          'flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition-colors max-lg:min-h-11',
                           'hover:bg-sidebar-accent focus-visible:ring-ring/50 outline-none focus-visible:ring-2',
                           isActive && 'bg-sidebar-accent text-sidebar-primary font-medium',
                         )
@@ -151,6 +167,63 @@ function UserMenu() {
   );
 }
 
+const TABS: { label: string; to: string; icon: typeof Package; perm: Permission; match: string[] }[] = [
+  { label: 'Dashboard', to: '/', icon: LayoutDashboard, perm: 'dashboard:read', match: [] },
+  { label: 'Orders', to: '/orders', icon: ClipboardList, perm: 'orders:read', match: ['/orders'] },
+  {
+    label: 'Products',
+    to: '/products',
+    icon: Package,
+    perm: 'products:read',
+    match: ['/products', '/gift-boxes', '/categories'],
+  },
+  { label: 'Inventory', to: '/inventory', icon: Warehouse, perm: 'inventory:read', match: ['/inventory'] },
+];
+
+/**
+ * Phone tab bar. Shown on top-level list screens only: detail and form screens have their own
+ * sticky Save / action bar at the bottom and a back link instead.
+ */
+function useShowTabBar() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/reports')) return true;
+  if (pathname === '/settings') return false;
+  return pathname.split('/').filter(Boolean).length <= 1;
+}
+
+function BottomTabs({ onMore }: { onMore: () => void }) {
+  const { canAny } = useAuth();
+  const { pathname } = useLocation();
+  const tabs = TABS.filter((t) => canAny(t.perm));
+  const isActive = (t: (typeof TABS)[number]) =>
+    t.to === '/' ? pathname === '/' : t.match.some((m) => pathname === m || pathname.startsWith(`${m}/`));
+  const cell =
+    'flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium outline-none focus-visible:bg-muted';
+  return (
+    <nav
+      aria-label="Quick"
+      className="bg-background/95 fixed inset-x-0 bottom-0 z-30 flex border-t pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+    >
+      {tabs.map((t) => (
+        <Link
+          key={t.to}
+          to={t.to}
+          data-slot="tab-bar-item"
+          className={cn(cell, isActive(t) ? 'text-primary' : 'text-muted-foreground')}
+          aria-current={isActive(t) ? 'page' : undefined}
+        >
+          <t.icon className="size-5" aria-hidden />
+          {t.label}
+        </Link>
+      ))}
+      <button type="button" onClick={onMore} className={cn(cell, 'text-muted-foreground')}>
+        <MoreHorizontal className="size-5" aria-hidden />
+        More
+      </button>
+    </nav>
+  );
+}
+
 function ThemeToggle() {
   const { resolved, setTheme } = useTheme();
   return (
@@ -167,6 +240,7 @@ function ThemeToggle() {
 
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const tabBar = useShowTabBar();
   return (
     <div className="min-h-svh lg:grid lg:grid-cols-[15rem_1fr]">
       <a
@@ -181,14 +255,17 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-col">
-        <header className="bg-background/90 sticky top-0 z-30 flex h-14 items-center gap-2 border-b px-3 backdrop-blur sm:px-6">
+        <header className="bg-background/90 sticky top-0 z-30 flex min-h-14 items-center gap-1 border-b pt-[env(safe-area-inset-top)] pr-[max(0.5rem,env(safe-area-inset-right))] pl-[max(0.5rem,env(safe-area-inset-left))] backdrop-blur sm:gap-2 sm:px-6">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open menu">
                 <Menu />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="bg-sidebar w-72 gap-4 overflow-y-auto p-0 py-4">
+            <SheetContent
+              side="left"
+              className="bg-sidebar w-72 gap-4 overflow-y-auto p-0 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
+            >
               <SheetHeader className="sr-only">
                 <SheetTitle>Menu</SheetTitle>
                 <SheetDescription>Main navigation</SheetDescription>
@@ -197,21 +274,29 @@ export function AppShell() {
               <SidebarNav onNavigate={() => setMobileOpen(false)} />
             </SheetContent>
           </Sheet>
-          <div className="lg:hidden">
-            <Brand />
+          <div className="min-w-0 lg:hidden">
+            <Brand compact />
           </div>
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
             <GlobalSearch />
             <ThemeToggle />
             <UserMenu />
           </div>
         </header>
-        <main id="main" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 p-3 outline-none sm:p-6">
+        <main
+          id="main"
+          tabIndex={-1}
+          className={cn(
+            'mx-auto w-full max-w-7xl flex-1 px-[max(0.75rem,env(safe-area-inset-left))] py-3 outline-none sm:p-6',
+            tabBar && 'max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom))]',
+          )}
+        >
           {/* Pages load lazily: keep the shell and show a light placeholder meanwhile. */}
           <Suspense fallback={<TableSkeleton />}>
             <Outlet />
           </Suspense>
         </main>
+        {tabBar ? <BottomTabs onMore={() => setMobileOpen(true)} /> : null}
       </div>
     </div>
   );

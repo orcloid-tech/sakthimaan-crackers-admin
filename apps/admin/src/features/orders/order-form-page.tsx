@@ -4,6 +4,7 @@ import { AlertTriangle, ChevronLeft, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { INDIAN_STATES, type IndianStateCode } from '@sakthimaan/shared';
 import { Field, PageHeader, Section, Spinner } from '@/components/common';
+import { StickyActions } from '@/components/responsive';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -237,7 +238,7 @@ export function OrderFormPage() {
         back={
           <Link
             to="/orders"
-            className="text-muted-foreground hover:text-foreground mb-1 inline-flex items-center gap-1 text-sm"
+            className="text-muted-foreground hover:text-foreground mb-1 inline-flex items-center gap-1 text-sm max-lg:-ml-2 max-lg:min-h-11 max-lg:px-2"
           >
             <ChevronLeft className="size-4" aria-hidden /> Orders
           </Link>
@@ -375,7 +376,7 @@ export function OrderFormPage() {
               <Button
                 type="submit"
                 size="lg"
-                className="mt-4 w-full"
+                className="mt-4 hidden w-full lg:flex"
                 disabled={create.isPending || lines.length === 0}
               >
                 {create.isPending ? <Spinner /> : null} Save as enquiry
@@ -383,6 +384,19 @@ export function OrderFormPage() {
             }
           />
         </div>
+        <StickyActions className="lg:hidden">
+          <div className="min-w-0 flex-1 text-sm leading-tight">
+            <p className="text-muted-foreground text-xs">
+              {lines.length === 0 ? 'No items yet' : `${lines.length} item${lines.length === 1 ? '' : 's'}`}
+            </p>
+            <p className="font-semibold tabular-nums">
+              {preview && lines.length > 0 ? money(preview.pricing.grandTotal) : '—'}
+            </p>
+          </div>
+          <Button type="submit" disabled={create.isPending || lines.length === 0}>
+            {create.isPending ? <Spinner /> : null} Save as enquiry
+          </Button>
+        </StickyActions>
       </form>
     </>
   );

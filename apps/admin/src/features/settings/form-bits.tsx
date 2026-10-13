@@ -60,7 +60,7 @@ export function SaveBar({
   note?: ReactNode;
 }) {
   return (
-    <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-10 -mx-4 mt-4 flex items-center justify-end gap-2 border-t px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+    <div className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-10 -mx-3 mt-4 flex items-center justify-end gap-3 border-t px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
       {note ? <p className="text-muted-foreground mr-auto text-xs">{note}</p> : null}
       {children}
       <Button type="submit" disabled={saving || disabled}>

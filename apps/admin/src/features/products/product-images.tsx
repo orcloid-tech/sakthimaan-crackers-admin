@@ -146,7 +146,8 @@ export function ProductImages({ product }: { product: ProductDto }) {
                 <ImagePlus className="size-5" aria-hidden />
               )}
               Add images
-              <span className="text-xs">or drop here</span>
+              <span className="text-xs pointer-coarse:hidden">or drop here</span>
+              <span className="hidden text-xs pointer-coarse:inline">Camera or gallery</span>
             </button>
           </li>
         ) : null}

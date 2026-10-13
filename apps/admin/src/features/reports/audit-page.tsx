@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowRight, ExternalLink, Search, X } from 'lucide-react';
+import { ArrowRight, ExternalLink, Search } from 'lucide-react';
 import {
   AUDIT_ACTIONS,
   AUDIT_ENTITIES,
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { FilterBar } from '@/components/responsive';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDebounced } from '@/hooks/use-debounced';
@@ -174,26 +175,38 @@ export function AuditPage() {
         title="Audit log"
         description="Every change made in the admin: who, when and what changed. Entries can't be edited or deleted."
       />
-      <div className="mb-4 grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
-        <div className="relative col-span-2 lg:w-64">
-          <Search
-            className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
-            aria-hidden
-          />
-          <Input
-            type="search"
-            aria-label="Search the audit log"
-            placeholder="Record, summary or person"
-            className="pl-8"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setParam('q', e.target.value.trim() || null);
-            }}
-          />
-        </div>
+      <FilterBar
+        active={
+          ['user', 'action', 'entity', 'entityId'].filter((k) => params.get(k)).length +
+          (get('from') || get('to') ? 1 : 0)
+        }
+        onClear={() => {
+          setSearch('');
+          setParams(new URLSearchParams(), { replace: true });
+        }}
+        search={
+          <div className="relative lg:w-64">
+            <Search
+              className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+              aria-hidden
+            />
+            <Input
+              type="search"
+              aria-label="Search the audit log"
+              placeholder="Record, summary or person"
+              className="pl-8"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setParam('q', e.target.value.trim() || null);
+              }}
+              enterKeyHint="search"
+            />
+          </div>
+        }
+      >
         <Select value={get('user') || 'all'} onValueChange={(v) => setParam('user', v)}>
-          <SelectTrigger className="w-full lg:w-44" aria-label="User">
+          <SelectTrigger className="w-full md:w-44" aria-label="User">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -206,7 +219,7 @@ export function AuditPage() {
           </SelectContent>
         </Select>
         <Select value={get('entity') || 'all'} onValueChange={(v) => setParam('entity', v)}>
-          <SelectTrigger className="w-full lg:w-40" aria-label="Record type">
+          <SelectTrigger className="w-full md:w-40" aria-label="Record type">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -219,7 +232,7 @@ export function AuditPage() {
           </SelectContent>
         </Select>
         <Select value={get('action') || 'all'} onValueChange={(v) => setParam('action', v)}>
-          <SelectTrigger className="w-full lg:w-44" aria-label="Action">
+          <SelectTrigger className="w-full md:w-44" aria-label="Action">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -231,11 +244,11 @@ export function AuditPage() {
             ))}
           </SelectContent>
         </Select>
-        <div className="col-span-2 flex items-center gap-2 lg:col-span-1">
+        <div className="flex items-center gap-2">
           <Input
             type="date"
             aria-label="From date"
-            className="min-w-0 lg:w-40"
+            className="min-w-0 md:w-40"
             value={get('from')}
             max={get('to') || undefined}
             onChange={(e) => setParam('from', e.target.value)}
@@ -244,24 +257,13 @@ export function AuditPage() {
           <Input
             type="date"
             aria-label="To date"
-            className="min-w-0 lg:w-40"
+            className="min-w-0 md:w-40"
             value={get('to')}
             min={get('from') || undefined}
             onChange={(e) => setParam('to', e.target.value)}
           />
         </div>
-        {filtered ? (
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setSearch('');
-              setParams(new URLSearchParams(), { replace: true });
-            }}
-          >
-            <X /> Clear
-          </Button>
-        ) : null}
-      </div>
+      </FilterBar>
       {get('entityId') ? (
         <p className="text-muted-foreground mb-3 text-sm">Showing the history of one record.</p>
       ) : null}

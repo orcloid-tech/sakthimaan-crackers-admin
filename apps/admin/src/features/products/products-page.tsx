@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { FilterBar } from '@/components/responsive';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/hooks/use-auth';
@@ -233,24 +234,38 @@ export function ProductsPage({ kind }: { kind: 'single' | 'combo' }) {
         }
       />
 
-      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_12rem_9rem_11rem_auto]">
-        <div className="relative">
-          <Search
-            className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
-            aria-hidden
-          />
-          <Input
-            type="search"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setParam('q', e.target.value.trim());
-            }}
-            placeholder="Search name, SKU or tag"
-            aria-label="Search products"
-            className="pl-8"
-          />
-        </div>
+      <FilterBar
+        className="md:grid md:grid-cols-2 lg:grid-cols-[1fr_12rem_9rem_11rem_auto]"
+        active={(categoryId ? 1 : 0) + (status !== 'all' || deleted ? 1 : 0) + (lowStock ? 1 : 0)}
+        onClear={() => {
+          const next = new URLSearchParams();
+          for (const k of ['q', 'sort', 'order']) {
+            const v = params.get(k);
+            if (v) next.set(k, v);
+          }
+          setParams(next, { replace: true });
+        }}
+        search={
+          <div className="relative">
+            <Search
+              className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+              aria-hidden
+            />
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setParam('q', e.target.value.trim());
+              }}
+              placeholder="Search name, SKU or tag"
+              aria-label="Search products"
+              className="pl-8"
+              enterKeyHint="search"
+            />
+          </div>
+        }
+      >
         <Select value={categoryId || 'all'} onValueChange={(v) => setParam('category', v)}>
           <SelectTrigger className="w-full" aria-label="Category">
             <SelectValue placeholder="All categories" />
@@ -324,7 +339,7 @@ export function ProductsPage({ kind }: { kind: 'single' | 'combo' }) {
         >
           Low stock
         </Button>
-      </div>
+      </FilterBar>
 
       {list.isPending ? (
         <TableSkeleton />

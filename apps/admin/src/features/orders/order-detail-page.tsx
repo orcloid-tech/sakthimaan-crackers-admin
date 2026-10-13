@@ -28,6 +28,7 @@ import {
 } from '@sakthimaan/shared';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { ErrorState, PageHeader, Section, Spinner, TableSkeleton } from '@/components/common';
+import { StickyActions } from '@/components/responsive';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -258,7 +259,7 @@ export function OrderDetailPage() {
         back={
           <Link
             to="/orders"
-            className="text-muted-foreground hover:text-foreground mb-1 inline-flex items-center gap-1 text-sm"
+            className="text-muted-foreground hover:text-foreground mb-1 inline-flex items-center gap-1 text-sm max-lg:-ml-2 max-lg:min-h-11 max-lg:px-2"
           >
             <ChevronLeft className="size-4" aria-hidden /> Orders
           </Link>
@@ -276,7 +277,8 @@ export function OrderDetailPage() {
         }
         actions={
           <>
-            {actions}
+            {/* Phones: workflow buttons live in the sticky bar at the bottom instead. */}
+            <span className="hidden md:contents">{actions}</span>
             <WhatsAppMenu order={o} suggested={waSuggested} />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -349,6 +351,37 @@ export function OrderDetailPage() {
           Cancelled {dateTime(o.cancelledAt)}: {o.cancelReason}
         </p>
       ) : null}
+
+      {/* Phones and tablets: who, where and how much before the item list (the cards are further down). */}
+      <section
+        aria-label="Summary"
+        className="bg-card mb-4 grid grid-cols-2 gap-x-3 gap-y-2 rounded-xl border p-3 text-sm lg:hidden"
+      >
+        <div className="col-span-2 flex min-w-0 items-center justify-between gap-2">
+          <p className="min-w-0 truncate font-medium">{o.customer.name}</p>
+          <a
+            href={`tel:${o.customer.phone}`}
+            data-slot="tel-link"
+            className="text-primary inline-flex min-h-11 shrink-0 items-center font-mono text-sm"
+          >
+            {o.customer.phone}
+          </a>
+        </div>
+        <div className="min-w-0">
+          <p className="text-muted-foreground text-xs">Ship to</p>
+          <p className="truncate">
+            {o.shippingAddress.city}, {stateName(o.shippingAddress.stateCode)}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-muted-foreground text-xs">
+            {o.balanceDue > 0 && o.status !== 'enquiry' ? 'Due' : 'Total'}
+          </p>
+          <p className="font-semibold tabular-nums">
+            {money(o.balanceDue > 0 && o.status !== 'enquiry' ? o.balanceDue : o.pricing.grandTotal)}
+          </p>
+        </div>
+      </section>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_22rem] lg:items-start">
         <div className="grid min-w-0 gap-4">
@@ -429,6 +462,12 @@ export function OrderDetailPage() {
           />
         </div>
       </div>
+
+      {actions.length > 0 && !editing ? (
+        <StickyActions className="mt-4 overflow-x-auto md:hidden [&>*]:flex-1 [&>*]:shrink-0">
+          {actions}
+        </StickyActions>
+      ) : null}
 
       {dialog?.kind === 'payment' ? <PaymentDialog order={o} onClose={close} /> : null}
       {dialog?.kind === 'void' ? (

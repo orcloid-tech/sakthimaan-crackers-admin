@@ -7,6 +7,7 @@ import { ArrowLeft, Lock, Minus, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { computeNetPrice, type ProductDto } from '@sakthimaan/shared';
 import { ErrorState, Field, PageHeader, Section, Spinner } from '@/components/common';
+import { StickyActions } from '@/components/responsive';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Can } from '@/components/guards';
 import { Button } from '@/components/ui/button';
@@ -203,7 +204,7 @@ function GiftBoxBuilder({ box }: { box: ProductDto | undefined }) {
         back={
           <Link
             to="/gift-boxes"
-            className="text-muted-foreground hover:text-foreground mb-1 inline-flex items-center gap-1 text-sm"
+            className="text-muted-foreground hover:text-foreground mb-1 inline-flex items-center gap-1 text-sm max-lg:-ml-2 max-lg:min-h-11 max-lg:px-2"
           >
             <ArrowLeft className="size-4" aria-hidden /> Gift boxes
           </Link>
@@ -459,6 +460,7 @@ function GiftBoxBuilder({ box }: { box: ProductDto | undefined }) {
             <Button
               type="submit"
               size="lg"
+              className="hidden lg:flex"
               disabled={isSubmitting || (!!box && !form.formState.isDirty && !linesDirty)}
             >
               {isSubmitting ? <Spinner /> : null}
@@ -466,6 +468,21 @@ function GiftBoxBuilder({ box }: { box: ProductDto | undefined }) {
             </Button>
           ) : null}
         </aside>
+        {canEdit ? (
+          <StickyActions className="lg:hidden">
+            <p className="min-w-0 flex-1 text-sm">
+              <span className="text-muted-foreground block text-xs">Box price</span>
+              <span className="font-semibold tabular-nums">{net === null ? '—' : money(net)}</span>
+            </p>
+            <Button
+              type="submit"
+              disabled={isSubmitting || (!!box && !form.formState.isDirty && !linesDirty)}
+            >
+              {isSubmitting ? <Spinner /> : null}
+              {box ? 'Save gift box' : 'Create gift box'}
+            </Button>
+          </StickyActions>
+        ) : null}
       </form>
     </>
   );

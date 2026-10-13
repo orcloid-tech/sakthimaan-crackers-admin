@@ -446,7 +446,7 @@ export function ProductLedgerPage() {
         back={
           <Link
             to="/inventory?tab=movements"
-            className="text-muted-foreground hover:text-foreground mb-1 inline-flex items-center gap-1 text-sm"
+            className="text-muted-foreground hover:text-foreground mb-1 inline-flex items-center gap-1 text-sm max-lg:-ml-2 max-lg:min-h-11 max-lg:px-2"
           >
             <ArrowLeft className="size-4" aria-hidden /> Inventory
           </Link>

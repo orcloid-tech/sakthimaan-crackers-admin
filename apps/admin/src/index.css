@@ -128,16 +128,52 @@
     @apply font-sans;
   }
 }
-/* Phones and tablets during the season: comfortable touch targets (≈44px). */
-@media (pointer: coarse) {
+/* Phones, tablets and touch screens: ≈44px tap targets, 16px inputs (no iOS zoom on focus). */
+@media (max-width: 1023.98px), (pointer: coarse) {
   [data-slot='input'],
+  [data-slot='textarea'],
   [data-slot='select-trigger'],
-  [data-slot='button'][data-size='default'],
-  [data-slot='button'][data-size='lg'] {
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+  [data-slot="input"],
+  [data-slot="select-trigger"],
+  /* Buttons by their own attributes: as a menu/sheet trigger (asChild) data-slot is replaced. */
+  :is(button, a)[data-variant][data-size],
+  [data-slot="dropdown-menu-item"],
+  [data-slot="dropdown-menu-checkbox-item"],
+  [data-slot="dropdown-menu-radio-item"],
+  [data-slot="select-item"],
+  [data-slot="command-item"],
+  [data-slot="tabs-trigger"] {
     min-height: 2.75rem;
   }
-  [data-slot='button'][data-size='icon'] {
+  :is(button, a)[data-variant][data-size],
+  [data-slot='tabs-trigger'] {
     min-width: 2.75rem;
-    min-height: 2.75rem;
+  }
+  [data-slot='tabs-list'] {
+    height: auto;
+  }
+  /* Small controls keep their look but get an invisible 44px hit area. */
+  [data-slot='switch'],
+  [data-slot='checkbox'],
+  [data-slot='radio-group-item'],
+  main a[href]:not([data-slot]) {
+    position: relative;
+  }
+  [data-slot='switch']::after,
+  [data-slot='checkbox']::after,
+  [data-slot='radio-group-item']::after,
+  main a[href]:not([data-slot])::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
   }
 }
