@@ -69,6 +69,7 @@ import { createAuditRouter, createReportsRouter } from './routes/v1/insights.rou
 import { AuditQueryService } from './services/audit-query.service.js';
 import { CompanyAssets } from './services/company-assets.js';
 import { createEncryption } from './services/encryption.js';
+import { StorefrontService } from './services/storefront.service.js';
 import { ReportsService } from './services/reports/reports.service.js';
 import { CustomerService } from './services/customer.service.js';
 import { SettingsService } from './services/settings.service.js';
@@ -228,6 +229,9 @@ export function createApp(deps: AppDeps): AppContainer {
   // ---- public API (customer website)
   const publicRouter = createPublicRouter({
     writeGuards: [publicWriteLimiter(env.RATE_LIMIT_PUBLIC_WRITE_PER_10MIN), requireCaptcha(deps.captcha)],
+    heavyGuards: [publicWriteLimiter(env.RATE_LIMIT_PUBLIC_WRITE_PER_10MIN)],
+    storefront: new StorefrontService({ builder: orderBuilder, priceList }),
+    publicBaseUrl: env.PUBLIC_API_URL,
     docs,
     modules: [(r, guards, d) => registerPublicOrderRoutes(r, createPublicOrderController(orders), guards, d)],
   });

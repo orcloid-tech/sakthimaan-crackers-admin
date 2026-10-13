@@ -19,6 +19,8 @@ export * from './schemas/common.schemas.js';
 export * from './schemas/order.schemas.js';
 export * from './schemas/report.schemas.js';
 export * from './schemas/settings.schemas.js';
+export * from './schemas/storefront.schemas.js';
 export * from './states.js';
+export * from './storefront-api.js';
 export * from './tax.js';
 export * from './words.js';

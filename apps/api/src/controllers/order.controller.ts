@@ -16,6 +16,9 @@ import {
   publicOrderSchema,
   transitionSchema,
   whatsappQuery,
+  type StorefrontCartPreview,
+  type StorefrontOrderResult,
+  type StorefrontOrderTracking,
 } from '@sakthimaan/shared';
 import { authOf } from '../middlewares/auth.js';
 import { requestMeta } from '../middlewares/request-context.js';
@@ -151,23 +154,29 @@ export function createOrderController(deps: {
 export function createPublicOrderController(orders: OrderService) {
   return {
     submit: validated({ body: publicOrderSchema }, async ({ body }, req, res) => {
-      sendCreated(res, await orders.createFromWebsite(body, requestMeta(req)));
+      const result: StorefrontOrderResult = await orders.createFromWebsite(body, requestMeta(req));
+      sendCreated(res, result);
     }),
     preview: validated({ body: pricingPreviewSchema }, async ({ body }, _req, res) => {
       const p = await orders.preview(body);
       // Website view: no stock figures.
-      sendOk(res, {
+      const view: StorefrontCartPreview = {
         items: p.items,
         pricing: p.pricing,
         serviceability: p.serviceability,
         meetsMinimum: p.meetsMinimum,
         unavailable: p.unavailable,
-      });
+      };
+      sendOk(res, view);
     }),
     track: validated(
       { query: z.object({ orderNo: z.string().trim().min(5).max(40), phone: mobileSchema }) },
       async ({ query }, _req, res) => {
-        sendOk(res, await orders.trackForCustomer(query.orderNo.toUpperCase(), query.phone));
+        const tracking: StorefrontOrderTracking = await orders.trackForCustomer(
+          query.orderNo.toUpperCase(),
+          query.phone,
+        );
+        sendOk(res, tracking);
       },
     ),
   };
