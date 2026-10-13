@@ -4,7 +4,7 @@
     "admin": {
       "root": "apps/admin",
       "framework": "vite",
-      "installCommand": "cd ../.. && npm ci",
+      "installCommand": "cd ../.. && HUSKY=0 npm ci --include=dev",
       "buildCommand": "npm run build",
       "outputDirectory": "dist",
       "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
@@ -13,7 +13,7 @@
       "root": "apps/api",
       "framework": "express",
       "entrypoint": "src/vercel.ts",
-      "installCommand": "cd ../.. && npm ci",
+      "installCommand": "cd ../.. && HUSKY=0 npm ci --include=dev",
       "buildCommand": "cd ../.. && npm run build -w @sakthimaan/shared"
     }
   },
