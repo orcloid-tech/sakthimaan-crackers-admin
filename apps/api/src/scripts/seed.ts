@@ -8,7 +8,12 @@
  * 10 categories, ~50 products, gift boxes, customers and orders in every status.
  * Stock changes go through InventoryService, so ledgers match stock exactly.
  * Refuses to run when NODE_ENV=production.
+ *
+ * Demo users share one password: SEED_USER_PASSWORD if set, otherwise SEED_PASSWORD for a
+ * local database and a random one (printed at the end) for a remote one, so a hosted demo
+ * never uses the password published in this file.
  */
+import { randomBytes } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import mongoose, { type Types } from 'mongoose';
 import {
@@ -715,7 +720,10 @@ async function run(): Promise<void> {
     const inventory = new InventoryService(new AuditService(logger));
 
     // Users
-    const passwordHash = await bcrypt.hash(SEED_PASSWORD, env.BCRYPT_COST);
+    const password =
+      process.env.SEED_USER_PASSWORD ||
+      (target.isLocal ? SEED_PASSWORD : `${randomBytes(15).toString('base64url')}7k`);
+    const passwordHash = await bcrypt.hash(password, env.BCRYPT_COST);
     const users = new Map<Role, Types.ObjectId>();
     for (const role of ROLES) {
       const u = await UserModel.create({
@@ -1319,9 +1327,7 @@ async function run(): Promise<void> {
       `\nSeeded: ${await CategoryModel.countDocuments()} categories, ${productCount} products (incl. ${GIFT_BOXES.length} gift boxes),`,
     );
     console.log(`        ${customers.length} customers, ${plan.length} orders, ${ROLES.length} users.\n`);
-    console.log(
-      'Sign in at http://localhost:5173 with any of these (password for all: ' + SEED_PASSWORD + '):',
-    );
+    console.log(`Sign in at ${env.ADMIN_APP_URL} with any of these (password for all: ${password}):`);
     for (const role of ROLES) console.log(`  ${ROLE_LABELS[role].padEnd(18)} ${SEED_USERS[role].email}`);
     console.log('');
   } finally {
