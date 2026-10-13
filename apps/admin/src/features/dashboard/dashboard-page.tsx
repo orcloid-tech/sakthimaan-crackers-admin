@@ -91,16 +91,27 @@ function ListCard({
   description,
   children,
   empty,
+  to,
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   empty: boolean;
+  /** Opens the full report. */
+  to?: string;
 }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
+        <CardTitle className="text-base">
+          {to ? (
+            <Link to={to} className="hover:text-primary underline-offset-4 hover:underline">
+              {title}
+            </Link>
+          ) : (
+            title
+          )}
+        </CardTitle>
         {description ? <CardDescription>{description}</CardDescription> : null}
       </CardHeader>
       <CardContent>
@@ -127,6 +138,11 @@ export function DashboardPage() {
   const runtime = useRuntimeSettings().data;
   const pending = summary.isPending;
   const seasonName = d?.season.name ?? 'Last 30 days';
+  const canReports = can('reports:read');
+  const istDay = (iso: string) => new Date(Date.parse(iso) + 330 * 60_000).toISOString().slice(0, 10);
+  const today = istDay(new Date().toISOString());
+  const salesLink = (from: string, to: string) =>
+    canReports ? `/reports/sales?from=${from}&to=${to}` : undefined;
 
   return (
     <>
@@ -153,6 +169,7 @@ export function DashboardPage() {
           value={money(d?.today.sales ?? 0)}
           pending={pending}
           icon={IndianRupee}
+          to={salesLink(today, today)}
           hint={d ? `${plural(d.today.orders, 'order')} · ${money(d.today.collected)} collected` : undefined}
         />
         <Kpi
@@ -160,6 +177,7 @@ export function DashboardPage() {
           value={money(d?.season.sales ?? 0)}
           pending={pending}
           icon={TrendingUp}
+          to={d ? salesLink(istDay(d.season.from), istDay(d.season.to)) : undefined}
           hint={
             d ? (
               <>
@@ -193,7 +211,7 @@ export function DashboardPage() {
           pending={pending}
           icon={Wallet}
           tone={(d?.awaitingPayment.orders ?? 0) > 0 ? 'warn' : 'default'}
-          to={canOrders ? '/orders?payment=unpaid' : undefined}
+          to={canReports ? '/reports/payments' : canOrders ? '/orders?payment=unpaid' : undefined}
           hint={d ? `Across ${plural(d.awaitingPayment.orders, 'confirmed order')}` : undefined}
         />
         {canProducts ? (
@@ -263,6 +281,7 @@ export function DashboardPage() {
           </ListCard>
           <ListCard
             title="Top products"
+            to={canReports ? '/reports/products' : undefined}
             description="By sales this season"
             empty={d.topProducts.length === 0}
           >
@@ -278,7 +297,12 @@ export function DashboardPage() {
               ))}
             </ol>
           </ListCard>
-          <ListCard title="Sales by state" description="This season" empty={d.byState.length === 0}>
+          <ListCard
+            title="Sales by state"
+            to={canReports ? '/reports/states' : undefined}
+            description="This season"
+            empty={d.byState.length === 0}
+          >
             <ul className="grid gap-2 text-sm">
               {d.byState.slice(0, 8).map((s) => (
                 <li key={s.stateCode} className="flex items-baseline justify-between gap-3">

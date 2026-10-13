@@ -63,6 +63,9 @@ const settingsSchema = new Schema(
       sellerStateCode: { type: String, enum: INDIAN_STATE_CODES },
       defaultHsn: { type: String, match: HSN_REGEX },
       defaultTaxRate: { type: Number, min: 0, max: 28 },
+      // GSTR-1 B2C (large) limit in paise. Initial value is the legal limit at the time of
+      // writing (₹1,00,000 since 1 Aug 2024, earlier ₹2,50,000); change it here if the law does.
+      b2clThreshold: { type: Number, min: 0, default: 1_00_000_00 },
     },
 
     pricing: {

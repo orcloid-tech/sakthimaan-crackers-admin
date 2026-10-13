@@ -42,6 +42,9 @@ const envSchema = z
     ADMIN_APP_URL: z.url(),
 
     JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
+    // Data encryption at rest (separate from JWT signing; see services/encryption.ts).
+    // Required in production (checked at start-up); optional in development and tests.
+    ENCRYPTION_KEY: z.string().min(32, 'ENCRYPTION_KEY must be at least 32 characters').optional(),
     JWT_ACCESS_TTL_SECONDS: int(900, 60, 3600),
     JWT_ISSUER: z.string().default('sakthimaan-api'),
     JWT_AUDIENCE: z.string().default('sakthimaan-admin'),
@@ -117,17 +120,25 @@ const envSchema = z
     JSON_BODY_LIMIT: z.string().default('1mb'),
   })
   .superRefine((env, ctx) => {
+    if (env.ENCRYPTION_KEY && env.ENCRYPTION_KEY === env.JWT_ACCESS_SECRET) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ENCRYPTION_KEY'],
+        message: 'Must be different from JWT_ACCESS_SECRET (rotating one must not affect the other)',
+      });
+    }
     if (env.NODE_ENV === 'production') {
-      // The signing/encryption secret must be a real random value, not a copied placeholder.
-      if (
-        /change[-_ ]?me|example|placeholder|your[-_ ]?secret|^secret|password/i.test(env.JWT_ACCESS_SECRET)
-      ) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['JWT_ACCESS_SECRET'],
-          message:
-            "Looks like a placeholder. Generate one: node -e \"console.log(require('crypto').randomBytes(48).toString('base64url'))\"",
-        });
+      // Secrets must be real random values, not copied placeholders.
+      for (const key of ['JWT_ACCESS_SECRET', 'ENCRYPTION_KEY'] as const) {
+        const value = env[key];
+        if (value && PLACEHOLDER_SECRET.test(value)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message:
+              "Looks like a placeholder. Generate one: node -e \"console.log(require('crypto').randomBytes(48).toString('base64url'))\"",
+          });
+        }
       }
       if (env.BCRYPT_COST < 12) {
         ctx.addIssue({ code: 'custom', path: ['BCRYPT_COST'], message: 'Must be >= 12 in production' });
@@ -222,6 +233,9 @@ function isWithinDomain(host: string, domain: string): boolean {
 }
 
 /** Non-fatal hosting problems worth logging at startup (fatal ones fail validation). */
+/** Values copied from .env.example or obviously made up. */
+const PLACEHOLDER_SECRET = /change[-_ ]?me|example|placeholder|your[-_ ]?(secret|key)|^secret|password/i;
+
 export function deploymentWarnings(env: Env): string[] {
   const warnings: string[] = [];
   if (env.isProduction && env.STORAGE_PROVIDER === 'local') {

@@ -5,6 +5,7 @@ import { EnvValidationError, deploymentWarnings, loadEnv } from './config/env.js
 import { createLogger, type Logger } from './config/logger.js';
 import { createCaptchaVerifier } from './providers/captcha/captcha.provider.js';
 import { createMailer } from './providers/mail/mailer.js';
+import { encryptionStartupErrors } from './services/encryption.js';
 import { loadRuntimeSettings } from './services/runtime-settings.js';
 
 const SHUTDOWN_GRACE_MS = 15_000;
@@ -16,6 +17,12 @@ async function main(): Promise<void> {
   } catch (err) {
     // Logger isn't configured yet; print plainly and exit non-zero.
     console.error(err instanceof EnvValidationError ? err.message : err);
+    process.exit(1);
+  }
+
+  const startupErrors = encryptionStartupErrors(env);
+  if (startupErrors.length) {
+    console.error(`Invalid environment configuration:\n  - ${startupErrors.join('\n  - ')}`);
     process.exit(1);
   }
 

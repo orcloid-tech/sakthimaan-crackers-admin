@@ -34,8 +34,9 @@ export function BrandMark({ logoUrl, size = 32 }: { logoUrl: string | null | und
     <img
       src={logoUrl}
       alt=""
+      // Wide logos keep their shape: fixed height, width up to three times that.
       className="shrink-0 rounded-lg object-contain"
-      style={{ width: size, height: size }}
+      style={{ height: size, width: 'auto', maxWidth: size * 3 }}
     />
   ) : (
     <span

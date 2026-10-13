@@ -50,6 +50,8 @@ export const taxSettingsSchema = z.strictObject({
   defaultHsn: z.string().trim().regex(HSN_REGEX, 'HSN must be 4, 6 or 8 digits').optional(),
   defaultTaxRate: taxRateSchema.optional(),
   netPriceRounding: z.enum(NET_PRICE_ROUNDING_MODES),
+  /** GSTR-1: inter-state B2C invoices above this (paise) are reported one by one (b2cl). */
+  b2clThreshold: paiseSchema.optional(),
 });
 
 const prefixSchema = z

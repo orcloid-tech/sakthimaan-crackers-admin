@@ -18,7 +18,8 @@ import { RefreshTokenModel, UserModel } from '../models/index.js';
 import type { Mailer } from '../providers/mail/mailer.js';
 import type { TwoFactorProviders } from '../providers/two-factor/two-factor.provider.js';
 import { AppError, unauthorized } from '../utils/app-error.js';
-import { SecretBox, randomToken, sha256 } from '../utils/crypto.js';
+import { randomToken, sha256, type SecretBox } from '../utils/crypto.js';
+import type { Encryption } from './encryption.js';
 import type { AuditActor, AuditService } from './audit.service.js';
 import type { TokenService } from './token.service.js';
 
@@ -79,6 +80,8 @@ export interface AuthServiceDeps {
   audit: AuditService;
   mailer: Mailer;
   twoFactor: TwoFactorProviders;
+  /** Keyed by ENCRYPTION_KEY, not the JWT secret. */
+  encryption: Encryption;
   /** Store name for emails (from Settings). */
   storeName?: () => Promise<string | null>;
 }
@@ -91,7 +94,7 @@ export class AuthService {
 
   constructor(private readonly deps: AuthServiceDeps) {
     this.dummyHash = bcrypt.hash(randomToken(16), deps.env.BCRYPT_COST);
-    this.graceBox = new SecretBox(deps.env.JWT_ACCESS_SECRET, 'refresh-grace');
+    this.graceBox = deps.encryption.box('refresh-grace');
   }
 
   hashPassword(password: string): Promise<string> {

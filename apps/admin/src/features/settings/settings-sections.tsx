@@ -609,6 +609,7 @@ export function BillingSection({ s, canEdit }: Props) {
     defaultHsn: s.tax.defaultHsn ?? '',
     defaultTaxRate: s.tax.defaultTaxRate === null ? '' : String(s.tax.defaultTaxRate),
     netPriceRounding: s.tax.netPriceRounding,
+    b2cl: s.tax.b2clThreshold === null ? '' : rupeesText(s.tax.b2clThreshold),
   });
   const [inv, setInv] = useState({
     prefix: s.invoice.prefix ?? '',
@@ -650,6 +651,7 @@ export function BillingSection({ s, canEdit }: Props) {
         defaultHsn: opt(tax.defaultHsn),
         defaultTaxRate: tax.defaultTaxRate.trim() === '' ? undefined : Number(tax.defaultTaxRate),
         netPriceRounding: tax.netPriceRounding,
+        b2clThreshold: tax.b2cl.trim() ? (parseRupees(tax.b2cl) ?? undefined) : undefined,
       },
       roundingChanged ? 'Saved. All net prices were recalculated.' : 'Saved',
     );
@@ -690,6 +692,16 @@ export function BillingSection({ s, canEdit }: Props) {
               value={tax.defaultTaxRate}
               onChange={(v) => setTax((x) => ({ ...x, defaultTaxRate: v }))}
               error={taxSave.errors.defaultTaxRate}
+            />
+            <TextField
+              id="t-b2cl"
+              label="B2C large invoice limit (₹)"
+              inputMode="decimal"
+              fieldClassName="sm:col-span-3 sm:max-w-sm"
+              value={tax.b2cl}
+              onChange={(v) => setTax((x) => ({ ...x, b2cl: v }))}
+              error={taxSave.errors.b2clThreshold}
+              hint="GSTR-1: inter-state invoices to unregistered buyers above this are listed one by one (b2cl). Confirm the current limit with your accountant."
             />
           </div>
           <div className="mt-4 grid gap-2">

@@ -18,6 +18,12 @@ export async function ensureSettings(session?: ClientSession): Promise<void> {
     'documents.packingSlipNote': STARTER_TEXTS.packingSlipNote,
     'invoice.footerNote': STARTER_TEXTS.invoiceFooter,
   } as const;
+  // Stores created before the B2CL limit was a setting get the initial value once.
+  await SettingsModel.updateOne(
+    { _id: SETTINGS_ID, 'tax.b2clThreshold': { $exists: false } },
+    { $set: { 'tax.b2clThreshold': 1_00_000_00 } },
+    { session },
+  );
   const existing = await SettingsModel.findById(SETTINGS_ID, {
     starterTextsAddedAt: 1,
     whatsappTemplates: 1,

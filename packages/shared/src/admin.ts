@@ -58,6 +58,7 @@ export interface SettingsDto {
     defaultHsn: string | null;
     defaultTaxRate: number | null;
     netPriceRounding: NetPriceRounding;
+    b2clThreshold: Paise | null;
   };
   invoice: {
     prefix: string | null;

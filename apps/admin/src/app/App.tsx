@@ -59,6 +59,10 @@ const CustomersPage = lazy(() =>
 const CustomerDetailPage = lazy(() =>
   import('@/features/customers/customer-detail-page').then((m) => ({ default: m.CustomerDetailPage })),
 );
+const ReportsPage = lazy(() =>
+  import('@/features/reports/reports-page').then((m) => ({ default: m.ReportsPage })),
+);
+const AuditPage = lazy(() => import('@/features/reports/audit-page').then((m) => ({ default: m.AuditPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -246,6 +250,23 @@ const router = createBrowserRouter(
               element: (
                 <RequirePermission anyOf={['settings:read']}>
                   <SettingsPage />
+                </RequirePermission>
+              ),
+            },
+            { path: 'reports', element: <Navigate to="/reports/sales" replace /> },
+            {
+              path: 'reports/:kind',
+              element: (
+                <RequirePermission anyOf={['reports:read']}>
+                  <ReportsPage />
+                </RequirePermission>
+              ),
+            },
+            {
+              path: 'audit',
+              element: (
+                <RequirePermission anyOf={['audit:read']}>
+                  <AuditPage />
                 </RequirePermission>
               ),
             },

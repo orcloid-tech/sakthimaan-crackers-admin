@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { Controller, useForm, useWatch, type UseFormReturn } from 'react-hook-form';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, History, Lock, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -170,6 +170,8 @@ export function ProductFormPage() {
   }
   if (isEdit && product.isError)
     return <ErrorState error={product.error} onRetry={() => void product.refetch()} />;
+  // Gift boxes have their own editor (links from reports and the audit log use /products/:id).
+  if (product.data?.type === 'combo') return <Navigate to={`/gift-boxes/${product.data.id}`} replace />;
   return <ProductForm key={product.data?.id ?? 'new'} product={product.data} />;
 }
 

@@ -442,6 +442,7 @@ export class SettingsService {
         sellerStateCode: s.tax?.sellerStateCode ?? null,
         defaultHsn: s.tax?.defaultHsn ?? null,
         defaultTaxRate: s.tax?.defaultTaxRate ?? null,
+        b2clThreshold: s.tax?.b2clThreshold ?? null,
         netPriceRounding: s.pricing?.netPriceRounding ?? DEFAULT_NET_PRICE_ROUNDING,
       },
       invoice: {

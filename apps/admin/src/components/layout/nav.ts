@@ -1,12 +1,13 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  Boxes,
+  BarChart3,
   ClipboardList,
   FileSpreadsheet,
   Gift,
   LayoutDashboard,
   MapPinned,
   Package,
+  ScrollText,
   Settings,
   Tags,
   Truck,
@@ -62,11 +63,15 @@ export const NAV: NavGroup[] = [
     items: [{ label: 'Inventory', to: '/inventory', icon: Warehouse, anyOf: ['inventory:read'] }],
   },
   {
+    label: 'Insights',
+    items: [{ label: 'Reports', to: '/reports', icon: BarChart3, anyOf: ['reports:read'] }],
+  },
+  {
     label: 'Admin',
     items: [
       { label: 'Delivery & zones', to: '/shipping', icon: MapPinned, anyOf: ['shipping:read'] },
       { label: 'Settings', to: '/settings', icon: Settings, anyOf: ['settings:read'] },
-      { label: 'Audit log', to: '/audit', icon: Boxes, anyOf: ['audit:read'], soon: true },
+      { label: 'Audit log', to: '/audit', icon: ScrollText, anyOf: ['audit:read'] },
     ],
   },
 ];

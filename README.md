@@ -33,7 +33,8 @@ Requirements: **Node 22+**. MongoDB must be a **replica set** (stock and order u
 ```bash
 npm install
 cp apps/api/.env.example apps/api/.env
-#   edit apps/api/.env: set MONGODB_URI (step 1) and JWT_ACCESS_SECRET
+#   edit apps/api/.env: set MONGODB_URI (step 1), JWT_ACCESS_SECRET and ENCRYPTION_KEY
+#   (two different values; generate each with the command below)
 #   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 npm run seed -- --reset      # sample data + one user per role (wipes the database; never in production)
 npm run dev                  # API on http://localhost:4000 (docs at /api/docs) + admin on http://localhost:5173

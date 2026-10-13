@@ -65,7 +65,11 @@ import {
   createSettingsRouter,
   createShippingRouter,
 } from './routes/v1/admin.routes.js';
+import { createAuditRouter, createReportsRouter } from './routes/v1/insights.routes.js';
+import { AuditQueryService } from './services/audit-query.service.js';
 import { CompanyAssets } from './services/company-assets.js';
+import { createEncryption } from './services/encryption.js';
+import { ReportsService } from './services/reports/reports.service.js';
 import { CustomerService } from './services/customer.service.js';
 import { SettingsService } from './services/settings.service.js';
 import { ShippingService } from './services/shipping.service.js';
@@ -116,9 +120,11 @@ export function createApp(deps: AppDeps): AppContainer {
   const tokens = new TokenService(env);
   const audit = new AuditService(logger);
   const settings = new SettingsCache();
+  const encryption = createEncryption(env, logger);
   const auth = new AuthService({
     env,
     logger,
+    encryption,
     tokens,
     audit,
     mailer: deps.mailer,
@@ -305,6 +311,8 @@ export function createApp(deps: AppDeps): AppContainer {
         },
         { path: '/shipping', router: createShippingRouter(createShippingController(shipping), docs) },
         { path: '/customers', router: createCustomersRouter(createCustomerController(customers), docs) },
+        { path: '/audit', router: createAuditRouter(new AuditQueryService(), docs) },
+        { path: '/reports', router: createReportsRouter(new ReportsService(settings), docs) },
       ],
     }),
   );
