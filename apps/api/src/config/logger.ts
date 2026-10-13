@@ -26,7 +26,8 @@ export function createLogger(env: Pick<Env, 'LOG_LEVEL' | 'NODE_ENV'>): Logger {
     redact: { paths: REDACT_PATHS, censor: '[REDACTED]' },
     timestamp: pino.stdTimeFunctions.isoTime,
     // Human-readable logs in development; JSON everywhere else (log aggregators parse it).
-    ...(env.NODE_ENV === 'development'
+    // Never on Vercel: pino-pretty is a dev dependency and is not in the function bundle.
+    ...(env.NODE_ENV === 'development' && !process.env.VERCEL
       ? {
           transport: {
             target: 'pino-pretty',

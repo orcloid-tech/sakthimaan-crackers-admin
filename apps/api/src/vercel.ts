@@ -13,6 +13,16 @@ import { loadRuntimeSettings } from './services/runtime-settings.js';
  * listening, and there are no signal or crash handlers. Startup errors throw, which fails
  * the cold start and shows up in the function logs.
  */
+// A deployed Vercel URL is public: without NODE_ENV=production the development defaults
+// (insecure cookies, placeholder secrets, API docs) would apply. `vercel dev` is exempt.
+const deployed = process.env.VERCEL_ENV === 'production' || process.env.VERCEL_ENV === 'preview';
+if (deployed && process.env.NODE_ENV !== 'production') {
+  throw new Error(
+    `NODE_ENV must be "production" on a Vercel ${process.env.VERCEL_ENV} deployment ` +
+      `(got "${process.env.NODE_ENV ?? ''}"). Set it in Project Settings > Environment Variables.`,
+  );
+}
+
 const env = loadEnv(withVercelPreviewUrls(process.env));
 const startupErrors = encryptionStartupErrors(env);
 if (startupErrors.length) {
