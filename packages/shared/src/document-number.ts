@@ -9,7 +9,6 @@ export const GST_DOC_NUMBER_MAX_LENGTH = 16;
 const ALLOWED_CHARS = /^[A-Za-z0-9/-]+$/;
 const SEQ_TOKEN = /\{SEQ:(\d)\}/;
 
-export const DEFAULT_INVOICE_PREFIX = 'SMC';
 export const DEFAULT_INVOICE_FORMAT = '{PREFIX}/{FY}/{SEQ:5}'; // SMC/26-27/00042  (15 chars)
 export const DEFAULT_CREDIT_NOTE_FORMAT = 'CN/{FY}/{SEQ:5}'; // CN/26-27/00001 (14 chars)
 

@@ -64,7 +64,8 @@ export interface ProductDto {
   /** Overrides (null = inherited) and the values that will apply to orders. */
   hsn: string | null;
   taxRate: number | null;
-  effectiveTax: { hsn: string; taxRate: number };
+  /** null when neither the product, its category nor Settings sets it. */
+  effectiveTax: { hsn: string | null; taxRate: number | null };
   unit: ProductUnit;
   contentsCount: number;
   stock: number;

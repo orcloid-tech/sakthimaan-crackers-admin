@@ -38,20 +38,22 @@ export function createPublicRouter(deps: {
       isOpen,
       closedMessage: isOpen ? null : (storefront?.closedMessage ?? null),
       orderMode: storefront?.orderMode ?? 'enquiry',
+      acceptedPaymentMethods: s.payment?.acceptedMethods ?? [],
       announcement: announcement?.isActive
         ? { text: announcement.text, linkUrl: announcement.linkUrl ?? null }
         : null,
       minOrderValue: s.order?.defaultMinOrderValue ?? null,
       safetyPageSlug: storefront?.safetyPageSlug ?? null,
-      payment: s.payment?.showUpiQrOnStorefront
-        ? {
-            upiId: s.payment.upiId ?? null,
-            upiPayeeName: s.payment.upiPayeeName ?? null,
-            upiQrImageUrl: s.payment.upiQrImage?.url ?? null,
-            bank: s.payment.bank ?? null,
-            instructions: s.payment.instructions ?? null,
-          }
-        : null,
+      payment:
+        s.payment?.showUpiQrOnStorefront && (s.payment.upiId || s.payment.bank?.accountNumber)
+          ? {
+              upiId: s.payment.upiId ?? null,
+              upiPayeeName: s.payment.upiPayeeName ?? null,
+              upiQrImageUrl: s.payment.upiQrImage?.url ?? null,
+              bank: s.payment.bank ?? null,
+              instructions: s.payment.instructions ?? null,
+            }
+          : null,
     });
   });
 

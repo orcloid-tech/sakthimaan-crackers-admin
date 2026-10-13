@@ -6,13 +6,11 @@ import { ArrowLeft, History, Lock, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import {
-  DEFAULT_HSN,
-  DEFAULT_TAX_RATE,
   HSN_REGEX,
   PRODUCT_UNITS,
   SOUND_LEVELS,
   computeNetPrice,
-  resolveTax,
+  resolveTaxIfSet,
   splitInclusiveGst,
   type CategoryTreeNode,
   type ProductDto,
@@ -534,8 +532,9 @@ function PricingSection({
   // Live preview with the same shared function and settings (rounding, tax defaults) the API uses.
   const runtime = useRuntimeSettings().data;
   const rounding = runtime?.netPriceRounding;
+  // Store defaults from Settings; null when not entered (the preview then says so).
   const defaults = useMemo(
-    () => ({ hsn: runtime?.defaultHsn ?? DEFAULT_HSN, taxRate: runtime?.defaultTaxRate ?? DEFAULT_TAX_RATE }),
+    () => ({ hsn: runtime?.defaultHsn ?? null, taxRate: runtime?.defaultTaxRate ?? null }),
     [runtime?.defaultHsn, runtime?.defaultTaxRate],
   );
   const preview = useMemo(() => {
@@ -550,12 +549,12 @@ function PricingSection({
         sub && (sub.hsn !== null || sub.taxRate !== null)
           ? { hsn: sub.hsn ?? cat?.hsn, taxRate: sub.taxRate ?? cat?.taxRate }
           : cat;
-      const tax = resolveTax(
+      const tax = resolveTaxIfSet(
         { hsn: hsn || null, taxRate: taxRate === '' ? null : Number(taxRate) },
         inherited,
         defaults,
       );
-      const split = splitInclusiveGst(net, tax.taxRate);
+      const split = tax.taxRate === null ? null : splitInclusiveGst(net, tax.taxRate);
       return { mrp, net, saving: mrp - net, tax, split };
     } catch {
       return null;
@@ -565,7 +564,9 @@ function PricingSection({
   return (
     <Section
       title="Price & GST"
-      description="Prices include GST. Net price is MRP less discount, rounded to the rupee."
+      description={`Prices include GST. Net price is MRP less discount, ${
+        rounding === 'nearest_paisa' ? 'to the paisa' : 'rounded to the rupee'
+      } (set in Settings).`}
     >
       {!canPrice ? (
         <p className="text-muted-foreground mb-3 flex items-center gap-1.5 text-sm">
@@ -574,19 +575,12 @@ function PricingSection({
       ) : null}
       <fieldset disabled={!canPrice} className="grid gap-4 sm:grid-cols-[1fr_1fr_1.2fr]">
         <Field label="MRP (₹)" htmlFor="mrp" error={errors.mrp?.message} required>
-          <Input
-            id="mrp"
-            inputMode="decimal"
-            placeholder="199"
-            {...form.register('mrp')}
-            aria-invalid={!!errors.mrp}
-          />
+          <Input id="mrp" inputMode="decimal" {...form.register('mrp')} aria-invalid={!!errors.mrp} />
         </Field>
         <Field label="Discount %" htmlFor="discountPct" error={errors.discountPct?.message} required>
           <Input
             id="discountPct"
             inputMode="decimal"
-            placeholder="80"
             {...form.register('discountPct')}
             aria-invalid={!!errors.discountPct}
           />
@@ -597,7 +591,8 @@ function PricingSection({
             <>
               <p className="text-primary text-2xl font-semibold tabular-nums">{money(preview.net)}</p>
               <p className="text-muted-foreground text-xs tabular-nums">
-                Saves {money(preview.saving)} · GST {preview.tax.taxRate}% = {money(preview.split.tax)} incl.
+                Saves {money(preview.saving)}
+                {preview.split ? ` · GST ${preview.tax.taxRate}% = ${money(preview.split.tax)} incl.` : ''}
               </p>
             </>
           ) : (
@@ -608,7 +603,13 @@ function PricingSection({
           label="HSN"
           htmlFor="hsn"
           error={errors.hsn?.message}
-          hint={preview ? `Using ${preview.tax.hsn}` : 'Empty = inherit'}
+          hint={
+            preview?.tax.hsn
+              ? `Using ${preview.tax.hsn}`
+              : preview
+                ? 'Not set here, on the category or in Settings'
+                : 'Empty = inherit'
+          }
         >
           <Input id="hsn" inputMode="numeric" placeholder="Inherit" {...form.register('hsn')} />
         </Field>
@@ -616,7 +617,13 @@ function PricingSection({
           label="GST %"
           htmlFor="taxRate"
           error={errors.taxRate?.message}
-          hint={preview ? `Using ${preview.tax.taxRate}%` : 'Empty = inherit'}
+          hint={
+            preview?.tax.taxRate != null
+              ? `Using ${preview.tax.taxRate}%`
+              : preview
+                ? 'Not set here, on the category or in Settings'
+                : 'Empty = inherit'
+          }
         >
           <Input id="taxRate" inputMode="decimal" placeholder="Inherit" {...form.register('taxRate')} />
         </Field>

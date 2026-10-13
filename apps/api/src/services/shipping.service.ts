@@ -17,6 +17,7 @@ import { conflict, notFound } from '../utils/app-error.js';
 import { oid } from '../utils/query.js';
 import { withTransaction } from '../utils/transaction.js';
 import { diffFields, type AuditActor, type AuditService } from './audit.service.js';
+import { ensureStates } from './runtime-settings.js';
 import type { SettingsCache } from './settings-cache.js';
 
 const ZONE_FIELDS = [
@@ -138,7 +139,7 @@ export class ShippingService {
   // ---------------------------------------------------------------- states
 
   async listStates(): Promise<ServiceStateDto[]> {
-    await this.ensureStates();
+    await ensureStates();
     const [states, zones, cityCounts, settings] = await Promise.all([
       ServiceStateModel.find().lean(),
       ZoneModel.find({}, { name: 1, minOrderValue: 1 }).lean(),
@@ -176,7 +177,7 @@ export class ShippingService {
     actor: AuditActor,
     meta: RequestMeta,
   ): Promise<ServiceStateDto[]> {
-    await this.ensureStates();
+    await ensureStates();
     let zone: { _id: Types.ObjectId; name: string } | null = null;
     if (input.zoneId) {
       zone = await ZoneModel.findById(input.zoneId, { name: 1 }).lean();
@@ -382,20 +383,5 @@ export class ShippingService {
       meta,
     );
     return this.listPartners();
-  }
-
-  /** Every state/UT has a row (not serviceable until switched on). */
-  private async ensureStates(): Promise<void> {
-    const count = await ServiceStateModel.estimatedDocumentCount();
-    if (count >= INDIAN_STATES.length) return;
-    await ServiceStateModel.bulkWrite(
-      INDIAN_STATES.map((s) => ({
-        updateOne: {
-          filter: { code: s.code },
-          update: { $setOnInsert: { code: s.code, name: s.name, gstCode: s.gstCode, isServiceable: false } },
-          upsert: true,
-        },
-      })),
-    );
   }
 }

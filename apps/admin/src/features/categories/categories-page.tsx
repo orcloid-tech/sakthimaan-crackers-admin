@@ -33,6 +33,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { ApiError, errorMessage } from '@/lib/api';
 import { plural } from '@/lib/format';
 import { useCategoryMutations, useCategoryTree } from '../catalog/api';
+import { useRuntimeSettings } from '../settings/api';
 
 type Editing = { mode: 'create'; parentId: string | null } | { mode: 'edit'; category: CategoryDto };
 
@@ -371,7 +372,7 @@ function CategoryDialog({
               label="HSN override"
               htmlFor="cat-hsn"
               error={errors.hsn?.message}
-              hint="Empty = store default (3604)"
+              hint={<StoreDefaultHint kind="hsn" />}
             >
               <Input id="cat-hsn" inputMode="numeric" {...form.register('hsn')} />
             </Field>
@@ -379,7 +380,7 @@ function CategoryDialog({
               label="GST % override"
               htmlFor="cat-tax"
               error={errors.taxRate?.message}
-              hint="Empty = store default"
+              hint={<StoreDefaultHint kind="taxRate" />}
             >
               <Input id="cat-tax" inputMode="decimal" {...form.register('taxRate')} />
             </Field>
@@ -411,5 +412,14 @@ function CategoryDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** "Empty = store default (…)": the default comes from Settings, and may not be set yet. */
+function StoreDefaultHint({ kind }: { kind: 'hsn' | 'taxRate' }) {
+  const rt = useRuntimeSettings().data;
+  const value = kind === 'hsn' ? rt?.defaultHsn : rt?.defaultTaxRate != null ? `${rt.defaultTaxRate}%` : null;
+  return (
+    <>{value ? `Empty = store default (${value})` : 'Empty = store default (not set in Settings yet)'}</>
   );
 }

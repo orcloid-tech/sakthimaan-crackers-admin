@@ -38,6 +38,7 @@ import { dateTime } from '@/lib/format';
 import { PHONE_SHEET, cn } from '@/lib/utils';
 import { useSeasonMutations, useSeasons, useSettings } from './api';
 import { ReadOnlyNote, SaveBar, useSaveSection } from './form-bits';
+import { SetupChecklist } from './setup-checklist';
 import {
   BillingSection,
   CompanySection,
@@ -76,6 +77,7 @@ export function SettingsPage() {
             : 'Business details, billing and how the store works.'
         }
       />
+      <SetupChecklist setup={s?.setup} />
       <Tabs value={tab} onValueChange={(v) => setParams({ tab: v }, { replace: true })}>
         <div className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <TabsList className="w-max">
@@ -140,35 +142,38 @@ const EVENT_LABEL: Record<WhatsAppEvent, string> = {
   order_cancelled: 'Order cancelled',
 };
 
+/** Placeholders and the example values used in the preview (store details come from Settings). */
 const PLACEHOLDERS: [string, string][] = [
   ['name', 'Ravi'],
   ['orderNo', 'ORD/26-27/000042'],
   ['total', '₹12,840'],
   ['due', '₹6,420'],
-  ['upiId', 'sakthimaan@okaxis'],
-  ['transport', 'KPN Parcel Service'],
-  ['lr', 'LR-778899'],
+  ['upiId', ''],
+  ['transport', 'Example Transport'],
+  ['lr', 'LR-123456'],
   ['boxes', '3'],
-  ['store', 'Sakthimaan Crackers'],
+  ['store', ''],
   ['reason', 'Reason: Customer request.'],
 ];
 
 function WhatsAppSection({ s, canEdit }: { s: SettingsDto; canEdit: boolean }) {
   const [messages, setMessages] = useState<Record<WhatsAppEvent, string>>(
     () =>
-      Object.fromEntries(WHATSAPP_EVENTS.map((e) => [e, s.whatsappTemplates[e].message])) as Record<
+      Object.fromEntries(WHATSAPP_EVENTS.map((e) => [e, s.whatsappTemplates[e] ?? ''])) as Record<
         WhatsAppEvent,
         string
       >,
   );
   const [open, setOpen] = useState<WhatsAppEvent | null>(null);
   const { save, errors, saving } = useSaveSection('whatsappTemplates');
-  const sampleUpi = s.payment.upiId ?? 'sakthimaan@okaxis';
+  const value = (k: string, example: string) =>
+    k === 'upiId'
+      ? (s.payment.upiId ?? '[UPI ID not set]')
+      : k === 'store'
+        ? (s.company.name ?? '[store name not set]')
+        : example;
   const preview = (text: string) =>
-    PLACEHOLDERS.reduce(
-      (t, [k, v]) => t.replaceAll(`{{${k}}}`, k === 'upiId' ? sampleUpi : k === 'store' ? s.company.name : v),
-      text,
-    );
+    PLACEHOLDERS.reduce((t, [k, v]) => t.replaceAll(`{{${k}}}`, value(k, v)), text);
 
   return (
     <form
@@ -181,14 +186,14 @@ function WhatsAppSection({ s, canEdit }: { s: SettingsDto; canEdit: boolean }) {
       <fieldset disabled={!canEdit} className="grid min-w-0 gap-4">
         <Section
           title="Messages"
-          description="Staff open WhatsApp with these messages filled in and press send. Words in {{double braces}} are filled from the order."
+          description="Staff open WhatsApp with these messages filled in and press send. Words in {{double braces}} are filled from the order. An empty message hides that WhatsApp option."
         >
           <p className="text-muted-foreground mb-3 text-xs">
             Available: {PLACEHOLDERS.map(([k]) => `{{${k}}}`).join(' ')}
           </p>
           <ul className="divide-y rounded-lg border">
             {WHATSAPP_EVENTS.map((e) => {
-              const custom = messages[e] !== DEFAULT_WHATSAPP_MESSAGES[e];
+              const empty = !messages[e].trim();
               const expanded = open === e;
               return (
                 <li key={e} className="p-3">
@@ -201,9 +206,9 @@ function WhatsAppSection({ s, canEdit }: { s: SettingsDto; canEdit: boolean }) {
                     <span className="min-w-0">
                       <span className="flex items-center gap-2 font-medium">
                         {EVENT_LABEL[e]}
-                        {custom ? <Badge variant="outline">Edited</Badge> : null}
+                        {empty ? <Badge variant="outline">Not set</Badge> : null}
                       </span>
-                      {!expanded ? (
+                      {!expanded && !empty ? (
                         <span className="text-muted-foreground line-clamp-1 text-sm">{messages[e]}</span>
                       ) : null}
                     </span>
@@ -220,11 +225,14 @@ function WhatsAppSection({ s, canEdit }: { s: SettingsDto; canEdit: boolean }) {
                         aria-invalid={!!errors[e]}
                       />
                       {errors[e] ? <p className="text-destructive text-xs">{errors[e]}</p> : null}
-                      <div className="bg-muted/60 rounded-lg p-3 text-sm whitespace-pre-wrap">
-                        <span className="text-muted-foreground mb-1 block text-xs">Preview</span>
-                        {preview(messages[e])}
-                      </div>
-                      {custom ? (
+                      {!empty ? (
+                        <div className="bg-muted/60 rounded-lg p-3 text-sm whitespace-pre-wrap">
+                          <span className="text-muted-foreground mb-1 block text-xs">
+                            Preview (example order)
+                          </span>
+                          {preview(messages[e])}
+                        </div>
+                      ) : (
                         <Button
                           type="button"
                           variant="ghost"
@@ -232,9 +240,9 @@ function WhatsAppSection({ s, canEdit }: { s: SettingsDto; canEdit: boolean }) {
                           className="justify-self-start"
                           onClick={() => setMessages((m) => ({ ...m, [e]: DEFAULT_WHATSAPP_MESSAGES[e] }))}
                         >
-                          <RotateCcw /> Use the default message
+                          <RotateCcw /> Use starter text
                         </Button>
-                      ) : null}
+                      )}
                     </div>
                   ) : null}
                 </li>
@@ -286,7 +294,7 @@ function SeasonsSection({ canEdit }: { canEdit: boolean }) {
       ) : seasons.data.length === 0 ? (
         <EmptyState
           title="No seasons yet"
-          description="Add Diwali 2026 to see season sales on the dashboard."
+          description="Add your sales season (for example the weeks around a festival) to compare seasons on the dashboard."
         />
       ) : (
         <ul className="divide-y rounded-lg border">
@@ -348,9 +356,8 @@ function SeasonsSection({ canEdit }: { canEdit: boolean }) {
 
 function SeasonDialog({ season, onClose }: { season: SeasonDto | null; onClose: () => void }) {
   const { save } = useSeasonMutations();
-  const year = new Date().getFullYear();
   const [f, setF] = useState({
-    name: season?.name ?? `Diwali ${year}`,
+    name: season?.name ?? '',
     startDate: season ? dateInput(season.startDate) : '',
     festivalDate: season ? dateInput(season.festivalDate) : '',
     endDate: season ? dateInput(season.endDate) : '',

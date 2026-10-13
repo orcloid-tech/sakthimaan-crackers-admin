@@ -2,7 +2,6 @@ import type { ClientSession } from 'mongoose';
 import {
   DEFAULT_CREDIT_NOTE_FORMAT,
   DEFAULT_INVOICE_FORMAT,
-  DEFAULT_INVOICE_PREFIX,
   counterKey,
   financialYearOf,
   formatDocumentNumber,
@@ -43,7 +42,7 @@ export async function nextInvoiceNo(settings: Settings | null, session: ClientSe
   const fy = financialYearOf(now);
   const seq = await nextSeq('invoice', fy, session);
   const number = formatDocumentNumber(settings?.invoice?.format ?? DEFAULT_INVOICE_FORMAT, {
-    prefix: settings?.invoice?.prefix ?? DEFAULT_INVOICE_PREFIX,
+    prefix: settings?.invoice?.prefix ?? '', // never empty here: assertCanInvoice runs first
     fy,
     seq,
   });

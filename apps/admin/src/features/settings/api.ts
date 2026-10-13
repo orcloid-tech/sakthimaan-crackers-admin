@@ -68,6 +68,7 @@ export function useSettingsMutations() {
   const settle = (s: SettingsDto) => {
     qc.setQueryData(adminKeys.settings, s);
     void qc.invalidateQueries({ queryKey: adminKeys.runtime });
+    void qc.invalidateQueries({ queryKey: ['branding'] });
     // Rounding changes re-price products; store details show on documents.
     void qc.invalidateQueries({ queryKey: ['products'] });
   };

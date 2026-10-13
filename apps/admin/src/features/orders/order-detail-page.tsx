@@ -118,7 +118,8 @@ const SUGGESTED: Partial<Record<OrderStatus, WhatsAppEvent>> = {
 async function openWhatsApp(orderId: string, event: WhatsAppEvent) {
   const tab = window.open('', '_blank');
   try {
-    const { url } = await whatsappLink(orderId, event);
+    const { url, warnings } = await whatsappLink(orderId, event);
+    for (const w of warnings) toast.warning(w);
     if (tab) tab.location.href = url;
     else window.location.href = url;
   } catch (err) {

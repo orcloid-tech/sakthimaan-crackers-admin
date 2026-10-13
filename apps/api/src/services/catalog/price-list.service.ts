@@ -130,7 +130,7 @@ export class PriceListService {
     const doc: DocDefinition = {
       pageSize: 'A4',
       pageMargins: [28, 36, 28, 40],
-      info: { title, author: company?.name ?? 'Sakthimaan Crackers', subject: 'Price list' },
+      info: { title, author: company?.name ?? '', subject: 'Price list' },
       defaultStyle: { font: 'Roboto', fontSize: 9 },
       styles: {
         company: { fontSize: 16, bold: true, color: COLORS.header },
@@ -154,7 +154,7 @@ export class PriceListService {
                       },
                     ]
                   : []),
-                { text: company?.name || 'Sakthimaan Crackers', style: 'company' },
+                ...(company?.name ? [{ text: company.name, style: 'company' }] : []),
                 ...(address ? [{ text: address, fontSize: 8 }] : []),
                 ...(company?.phones?.length
                   ? [{ text: `Phone: ${company.phones.join(' / ')}`, fontSize: 8 }]
@@ -179,7 +179,7 @@ export class PriceListService {
           text:
             'All prices in ₹ and inclusive of GST. Net price = MRP less discount.' +
             (minOrder ? ` Minimum order ₹${money(minOrder)}.` : '') +
-            ' Write quantities in the Qty column and send us a photo or call us.',
+            (settings?.documents?.priceListNote ? ` ${settings.documents.priceListNote}` : ''),
           style: 'note',
           margin: [0, 0, 0, 8],
         },
@@ -195,7 +195,7 @@ export class PriceListService {
           },
         },
         {
-          text: 'GREEN = green cracker (reduced emission). Please follow the safety instructions on each pack. Not for sale to children.',
+          text: settings?.documents?.priceListFooter ?? '',
           style: 'note',
           margin: [0, 8, 0, 0],
         },

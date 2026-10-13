@@ -3,6 +3,8 @@ import type { Env } from '../../config/env.js';
 import type { Logger } from '../../config/logger.js';
 
 export interface MailMessage {
+  /** Sender display name (the store name from Settings); the address comes from MAIL_FROM. */
+  fromName?: string;
   to: string;
   subject: string;
   text: string;
@@ -44,8 +46,10 @@ export class SmtpMailer implements Mailer {
     });
   }
 
-  async send(message: MailMessage): Promise<void> {
-    await this.transport.sendMail({ from: this.from, ...message });
+  async send({ fromName, ...message }: MailMessage): Promise<void> {
+    const address = /<([^>]+)>/.exec(this.from)?.[1] ?? this.from;
+    const from = fromName ? `"${fromName.replace(/["<>]/g, '')}" <${address}>` : this.from;
+    await this.transport.sendMail({ from, ...message });
   }
 }
 

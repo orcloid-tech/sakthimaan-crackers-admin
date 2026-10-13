@@ -88,7 +88,7 @@ const envSchema = z
     RATE_LIMIT_PUBLIC_WRITE_PER_10MIN: int(10, 1),
 
     MAIL_PROVIDER: z.enum(['console', 'smtp']).default('console'),
-    MAIL_FROM: z.string().default('Sakthimaan Crackers <no-reply@localhost>'),
+    MAIL_FROM: z.string().default('no-reply@localhost'), // address only; the name comes from Settings
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: int(587, 1, 65535),
     SMTP_SECURE: bool.default(false),
@@ -118,6 +118,17 @@ const envSchema = z
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'production') {
+      // The signing/encryption secret must be a real random value, not a copied placeholder.
+      if (
+        /change[-_ ]?me|example|placeholder|your[-_ ]?secret|^secret|password/i.test(env.JWT_ACCESS_SECRET)
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['JWT_ACCESS_SECRET'],
+          message:
+            "Looks like a placeholder. Generate one: node -e \"console.log(require('crypto').randomBytes(48).toString('base64url'))\"",
+        });
+      }
       if (env.BCRYPT_COST < 12) {
         ctx.addIssue({ code: 'custom', path: ['BCRYPT_COST'], message: 'Must be >= 12 in production' });
       }

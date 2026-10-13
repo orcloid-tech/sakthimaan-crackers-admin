@@ -241,7 +241,7 @@ export class OrderDocuments {
           ],
         },
         {
-          text: 'FIREWORKS: handle with care. Keep away from fire and heat. Do not stack heavy goods on top.',
+          text: settings?.documents?.packingSlipNote ?? '',
           fontSize: 8,
           bold: true,
           color: PDF_COLORS.red,
@@ -453,7 +453,7 @@ function taxDocument(
         margin: [0, 24, 0, 0],
         columns: [
           {
-            text: opts.footerNote ?? 'This is a computer-generated document.',
+            text: opts.footerNote ?? '',
             fontSize: 7.5,
             color: PDF_COLORS.muted,
           },

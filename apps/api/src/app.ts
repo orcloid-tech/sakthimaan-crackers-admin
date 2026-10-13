@@ -24,6 +24,7 @@ import type { CaptchaVerifier } from './providers/captcha/captcha.provider.js';
 import type { Mailer } from './providers/mail/mailer.js';
 import type { TwoFactorProviders } from './providers/two-factor/two-factor.provider.js';
 import { createHealthRouter } from './routes/health.routes.js';
+import { sendOk } from './utils/http.js';
 import { createAuthRouter } from './routes/v1/auth.routes.js';
 import { createAdminRouter } from './routes/v1/index.js';
 import { createPublicRouter } from './routes/v1/public/index.js';
@@ -114,6 +115,7 @@ export function createApp(deps: AppDeps): AppContainer {
   // ---- services
   const tokens = new TokenService(env);
   const audit = new AuditService(logger);
+  const settings = new SettingsCache();
   const auth = new AuthService({
     env,
     logger,
@@ -121,10 +123,10 @@ export function createApp(deps: AppDeps): AppContainer {
     audit,
     mailer: deps.mailer,
     twoFactor: deps.twoFactor ?? {},
+    storeName: async () => (await settings.get())?.company?.name || null,
   });
   const docs = new ApiDocs();
   const storage = deps.storage ?? createStorage(env);
-  const settings = new SettingsCache();
   const inventory = new InventoryService(audit);
   const categories = new CategoryService(audit, storage);
   const products = new ProductService({ audit, inventory, storage, settings });
@@ -189,7 +191,7 @@ export function createApp(deps: AppDeps): AppContainer {
   // ---- API docs (relaxed CSP for Swagger UI only)
   if (env.API_DOCS_ENABLED) {
     app.get('/api/openapi.json', (_req, res) => {
-      res.json(docs.toOpenApi({ title: 'Sakthimaan Crackers API', version: API_VERSION }));
+      res.json(docs.toOpenApi({ title: 'Store admin API', version: API_VERSION }));
     });
     app.use(
       '/api/docs',
@@ -229,6 +231,19 @@ export function createApp(deps: AppDeps): AppContainer {
     publicRouter,
     notFoundHandler,
   );
+
+  // ---- branding for the admin's sign-in page and header (no auth: name and logo only)
+  app.get('/api/v1/branding', async (_req, res) => {
+    const s = await settings.get();
+    sendOk(res, { storeName: s?.company?.name || null, logoUrl: s?.company?.logo?.url ?? null });
+  });
+  docs.register({
+    method: 'get',
+    path: '/api/v1/branding',
+    tag: 'Auth',
+    auth: 'none',
+    summary: 'Store name and logo for the sign-in page (null until set in Settings)',
+  });
 
   // ---- admin API
   const authController = createAuthController(auth, env);

@@ -1,6 +1,6 @@
 import { Suspense, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LogOut, Menu, Monitor, Moon, Sparkles, Sun, UserRound } from 'lucide-react';
+import { LogOut, Menu, Monitor, Moon, Sun, UserRound } from 'lucide-react';
 import { ROLE_LABELS } from '@sakthimaan/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,20 +25,21 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { authCall } from '@/lib/api';
 import { clearSession } from '@/lib/session';
+import { BrandMark, useBranding } from '@/lib/branding';
 import { useTheme, type Theme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { TableSkeleton } from '../common';
 import { GlobalSearch } from './global-search';
 import { NAV } from './nav';
 
+/** Store name and logo from Settings; neutral "Store admin" until they are entered. */
 function Brand() {
+  const brand = useBranding().data;
   return (
-    <Link to="/" className="flex items-center gap-2 px-2 py-1 font-semibold">
-      <span className="bg-primary text-primary-foreground grid size-8 place-items-center rounded-lg">
-        <Sparkles className="size-4" aria-hidden />
-      </span>
-      <span className="leading-tight">
-        Sakthimaan
+    <Link to="/" className="flex min-w-0 items-center gap-2 px-2 py-1 font-semibold">
+      <BrandMark logoUrl={brand?.logoUrl} />
+      <span className="min-w-0 leading-tight">
+        <span className="block truncate">{brand?.storeName ?? 'Store admin'}</span>
         <span className="text-muted-foreground block text-xs font-normal">Admin</span>
       </span>
     </Link>

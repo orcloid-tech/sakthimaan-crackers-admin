@@ -1,6 +1,6 @@
 import type { Types } from 'mongoose';
 import {
-  resolveTax,
+  resolveTaxIfSet,
   type CategoryDto,
   type ComboItemDto,
   type ImageRefDto,
@@ -55,7 +55,7 @@ export interface ProductMapContext {
     { sku: string; name: string; mrp: number; netPrice: number; isActive: boolean }
   >;
   demand: ReadonlyMap<string, number>;
-  taxDefaults: { hsn: string; taxRate: number };
+  taxDefaults: { hsn: string | null; taxRate: number | null };
 }
 
 export function toProductDto(p: Lean<Product>, ctx: ProductMapContext): ProductDto {
@@ -95,7 +95,7 @@ export function toProductDto(p: Lean<Product>, ctx: ProductMapContext): ProductD
     netPrice: p.netPrice,
     hsn: p.hsn ?? null,
     taxRate: p.taxRate ?? null,
-    effectiveTax: resolveTax(p, inherited, ctx.taxDefaults),
+    effectiveTax: resolveTaxIfSet(p, inherited, ctx.taxDefaults),
     unit: p.unit,
     contentsCount: p.contentsCount ?? 1,
     stock: p.stock,

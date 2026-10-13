@@ -1,9 +1,8 @@
 import type { ClientSession, Types } from 'mongoose';
 import {
-  DEFAULT_HSN,
   computeNetPrice,
   priceOrder,
-  resolveTax,
+  resolveTaxIfSet,
   type DeliveryChargeMode,
   type IndianStateCode,
   type NetPriceRounding,
@@ -14,6 +13,7 @@ import {
 import { CityModel, ProductModel, ServiceStateModel, ZoneModel, pricingContext } from '../../models/index.js';
 import { categoryLookup } from '../../repositories/catalog.repository.js';
 import type { SettingsCache } from '../settings-cache.js';
+import { assertCanPrice, setupIncomplete } from '../setup.js';
 
 /** Snapshot of one order line, exactly as stored on the order. */
 export interface LineSnapshot {
@@ -78,6 +78,9 @@ export class OrderBuilder {
       categoryLookup(),
       this.serviceability(destination.stateCode, destination.city),
     ]);
+    assertCanPrice(settings);
+    const sellerStateCode = taxDefaults.sellerStateCode;
+    if (!sellerStateCode) throw new Error('unreachable: checked by assertCanPrice');
     const products = await ProductModel.find({ _id: { $in: items.map((i) => i.productId) } })
       .session(opts.session ?? null)
       .lean();
@@ -92,6 +95,7 @@ export class OrderBuilder {
     const unavailable: BuiltOrder['unavailable'] = [];
     const shortages: ShortageItem[] = [];
     const usable: { product: (typeof products)[number]; qty: number; hsn: string; taxRate: number }[] = [];
+    const noTax: string[] = [];
     for (const item of items) {
       const p = byId.get(item.productId);
       if (!p) {
@@ -108,8 +112,12 @@ export class OrderBuilder {
         sub && (sub.hsn != null || sub.taxRate != null)
           ? { hsn: sub.hsn ?? cat?.hsn, taxRate: sub.taxRate ?? cat?.taxRate }
           : cat;
-      const tax = resolveTax(p, inherited, taxDefaults);
-      usable.push({ product: p, qty: item.qty, ...tax });
+      const tax = resolveTaxIfSet(p, inherited, taxDefaults);
+      if (tax.hsn === null || tax.taxRate === null) {
+        noTax.push(p.name);
+        continue;
+      }
+      usable.push({ product: p, qty: item.qty, hsn: tax.hsn, taxRate: tax.taxRate });
       if (item.qty > p.stock) {
         shortages.push({
           productId: String(p._id),
@@ -122,6 +130,17 @@ export class OrderBuilder {
       }
     }
 
+    if (noTax.length) {
+      throw setupIncomplete(`No GST rate / HSN for ${noTax.join(', ')}`, [
+        {
+          key: 'defaultTaxRate',
+          label: 'Default GST rate and HSN (or set them on the product or its category)',
+          tab: 'billing',
+          blocks: 'orders',
+        },
+      ]);
+    }
+
     const subtotalEstimate = usable.reduce((s, u) => s + u.product.netPrice * u.qty, 0);
     const deliveryChargeMode = opts.deliveryChargeMode ?? serviceability.deliveryChargeMode;
     const deliveryCharge =
@@ -131,7 +150,11 @@ export class OrderBuilder {
     const packingPct = settings?.order?.packingChargePct ?? 0;
     const packingCharge = packingPct > 0 ? Math.round((subtotalEstimate * packingPct) / 100) : 0;
 
-    const sellerStateCode = taxDefaults.sellerStateCode;
+    if (deliveryCharge + packingCharge > 0 && (taxDefaults.hsn === null || taxDefaults.taxRate === null)) {
+      throw setupIncomplete('Delivery / packing charges need a GST rate', [
+        { key: 'defaultTaxRate', label: 'Default GST rate and HSN', tab: 'billing', blocks: 'orders' },
+      ]);
+    }
     const priced = priceOrder({
       lines: usable.map((u) => ({
         mrp: u.product.mrp,
@@ -142,8 +165,9 @@ export class OrderBuilder {
       })),
       deliveryCharge,
       packingCharge,
-      chargesHsn: taxDefaults.hsn || DEFAULT_HSN,
-      chargesTaxRate: taxDefaults.taxRate,
+      // Only used when there are charges (checked above).
+      chargesHsn: taxDefaults.hsn ?? '',
+      chargesTaxRate: taxDefaults.taxRate ?? 0,
       sellerStateCode,
       buyerStateCode: destination.stateCode,
     });
@@ -181,7 +205,7 @@ export class OrderBuilder {
       lines,
       pricing: {
         ...priced,
-        charges: { ...priced.charges, hsn: taxDefaults.hsn || DEFAULT_HSN },
+        charges: { ...priced.charges, hsn: taxDefaults.hsn ?? '' },
         sellerStateCode,
         placeOfSupply: destination.stateCode,
         deliveryChargeMode,
@@ -207,7 +231,8 @@ export class OrderBuilder {
         : null,
     ]);
     const zone = state?.zone ? await ZoneModel.findOne({ _id: state.zone, isActive: true }).lean() : null;
-    const serviceable = cityDoc ? cityDoc.isServiceable : (state?.isServiceable ?? true);
+    // Delivery is switched on per state in Delivery & zones; nothing is assumed.
+    const serviceable = cityDoc ? cityDoc.isServiceable : (state?.isServiceable ?? false);
     const reason = serviceable
       ? null
       : (cityDoc?.restrictionNote ??

@@ -144,7 +144,7 @@ export async function buildProductsWorkbook(opts: {
   withInstructions: boolean;
 }): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Sakthimaan Crackers Admin';
+  wb.creator = 'Store admin';
   const headers = [...PRODUCT_IMPORT_HEADERS, ...(opts.extraColumns ?? [])];
 
   const ws = wb.addWorksheet(PRODUCTS_SHEET, { views: [{ state: 'frozen', ySplit: 1 }] });

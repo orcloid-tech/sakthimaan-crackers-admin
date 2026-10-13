@@ -197,7 +197,8 @@ export interface PublicOrderResult {
   orderNo: string;
   status: OrderStatus;
   grandTotal: Paise;
-  message: string;
+  /** The store's confirmation text from Settings; null if none is set. */
+  message: string | null;
   payment: { upiId: string | null; upiUri: string | null } | null;
 }
 
@@ -216,10 +217,24 @@ export interface DashboardSummary {
 }
 
 /**
- * Default WhatsApp messages (click-to-chat; staff press send). Editable templates come with
- * the Settings module. Placeholders: {{name}}, {{orderNo}}, {{total}}, {{due}}, {{upiId}},
+ * Starter WhatsApp messages: copied into Settings once when the store is first set up (and
+ * offered as "starter text" in the editor). The app only ever sends what is in Settings. Placeholders: {{name}}, {{orderNo}}, {{total}}, {{due}}, {{upiId}},
  * {{transport}}, {{lr}}, {{boxes}}, {{store}}, {{reason}}.
  */
+/** Starter texts for the website and documents, copied into Settings once (then editable). */
+export const STARTER_TEXTS = {
+  enquiryReceived:
+    'Thank you! We have received your enquiry. Our team will call you to confirm the list and the total.',
+  checkoutConfirmed:
+    'Thank you! Your order is confirmed. Please pay using the UPI details below and send us the screenshot.',
+  priceListNote: 'Write quantities in the Qty column and send us a photo, or call us.',
+  priceListFooter:
+    'GREEN = green cracker (reduced emission). Please follow the safety instructions on each pack. Not for sale to children.',
+  packingSlipNote:
+    'FIREWORKS: handle with care. Keep away from fire and heat. Do not stack heavy goods on top.',
+  invoiceFooter: 'This is a computer-generated document.',
+} as const;
+
 export const DEFAULT_WHATSAPP_MESSAGES: Record<WhatsAppEvent, string> = {
   order_received:
     'Vanakkam {{name}}, thank you for your enquiry {{orderNo}} with {{store}}. Our team will call you shortly to confirm the list and total.',

@@ -1,4 +1,4 @@
-import type { DeliveryChargeMode, DeliveryChargeType, OrderMode } from './enums.js';
+import type { DeliveryChargeMode, DeliveryChargeType, OrderMode, PaymentMethod } from './enums.js';
 import type { NetPriceRounding, Paise } from './money.js';
 import type { WhatsAppEvent } from './schemas/order.schemas.js';
 import type { IndianStateCode } from './states.js';
@@ -15,11 +15,27 @@ export interface AddressDto {
   pincode: string;
 }
 
+/** One thing still to fill in under Settings, and what it holds up. */
+export interface SetupItem {
+  key: string;
+  label: string;
+  /** Settings tab where it is entered. */
+  tab: 'company' | 'store' | 'billing' | 'payments' | 'orders' | 'shipping';
+  /** "orders": no order can be priced without it; "invoices": invoices can't be issued; "recommended": shown to customers. */
+  blocks: 'orders' | 'invoices' | 'recommended';
+}
+
+export interface SetupStatus {
+  ordersReady: boolean;
+  invoicesReady: boolean;
+  missing: SetupItem[];
+}
+
 export interface SettingsDto {
   version: number;
   updatedAt: string | null;
   company: {
-    name: string;
+    name: string | null;
     legalName: string | null;
     logoUrl: string | null;
     address: AddressDto | null;
@@ -35,15 +51,16 @@ export interface SettingsDto {
     closedMessage: string | null;
     orderMode: OrderMode;
     announcement: { text: string | null; linkUrl: string | null; isActive: boolean };
+    messages: { enquiryReceived: string | null; checkoutConfirmed: string | null };
   };
   tax: {
-    sellerStateCode: IndianStateCode;
-    defaultHsn: string;
-    defaultTaxRate: number;
+    sellerStateCode: IndianStateCode | null;
+    defaultHsn: string | null;
+    defaultTaxRate: number | null;
     netPriceRounding: NetPriceRounding;
   };
   invoice: {
-    prefix: string;
+    prefix: string | null;
     creditNotePrefix: string;
     format: string;
     creditNoteFormat: string;
@@ -51,14 +68,15 @@ export interface SettingsDto {
     footerNote: string | null;
     showUpiQr: boolean;
     /** What the next numbers would look like (not reserved). */
-    sampleInvoiceNo: string;
-    sampleCreditNoteNo: string;
+    sampleInvoiceNo: string | null;
+    sampleCreditNoteNo: string | null;
   };
   payment: {
     upiId: string | null;
     upiPayeeName: string | null;
     upiQrUrl: string | null;
     showUpiQrOnStorefront: boolean;
+    acceptedMethods: PaymentMethod[];
     bank: {
       accountName: string;
       accountNumber: string;
@@ -75,17 +93,22 @@ export interface SettingsDto {
     autoCancelUnpaidCheckoutHours: number;
     defaultLowStockThreshold: number;
   };
-  /** Effective messages (custom or default) and which events are customised. */
-  whatsappTemplates: Record<WhatsAppEvent, { message: string; isCustom: boolean }>;
+  /** Saved message per event; null = none (that WhatsApp button is disabled). */
+  whatsappTemplates: Record<WhatsAppEvent, string | null>;
+  documents: { priceListNote: string | null; priceListFooter: string | null; packingSlipNote: string | null };
+  setup: SetupStatus;
 }
 
 /** Settings every signed-in user may read (product form preview, defaults). */
 export interface RuntimeSettingsDto {
-  companyName: string;
+  companyName: string | null;
+  logoUrl: string | null;
   netPriceRounding: NetPriceRounding;
-  defaultHsn: string;
-  defaultTaxRate: number;
-  sellerStateCode: IndianStateCode;
+  defaultHsn: string | null;
+  defaultTaxRate: number | null;
+  sellerStateCode: IndianStateCode | null;
+  acceptedMethods: PaymentMethod[];
+  setup: SetupStatus;
   defaultLowStockThreshold: number;
   isOpen: boolean;
   orderMode: OrderMode;

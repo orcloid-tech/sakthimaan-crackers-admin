@@ -1,17 +1,14 @@
 import { Schema, model, type InferSchemaType } from 'mongoose';
 import {
   DEFAULT_CREDIT_NOTE_FORMAT,
-  DEFAULT_HSN,
   DEFAULT_INVOICE_FORMAT,
-  DEFAULT_INVOICE_PREFIX,
   DEFAULT_NET_PRICE_ROUNDING,
-  DEFAULT_SELLER_STATE_CODE,
-  DEFAULT_TAX_RATE,
   HSN_REGEX,
   INDIAN_STATE_CODES,
   NET_PRICE_ROUNDING_MODES,
   NOTIFICATION_CHANNELS,
   ORDER_MODES,
+  PAYMENT_METHODS,
   WHATSAPP_EVENTS,
 } from '@sakthimaan/shared';
 import { GSTIN_REGEX, MOBILE_REGEX, addressSchema, imageSchema } from './common.schemas.js';
@@ -19,6 +16,10 @@ import { GSTIN_REGEX, MOBILE_REGEX, addressSchema, imageSchema } from './common.
 export const SETTINGS_ID = 'store';
 
 /**
+ * Business details (name, GSTIN, tax, prefixes, payment details) have no defaults here:
+ * they are entered in Settings, and screens show what is still missing (services/setup.ts).
+ * Only neutral behaviour defaults (rounding mode, ORD/CN prefixes, alert levels) are set.
+ *
  * Singleton store configuration (`_id: "store"`). Read through a cached settings
  * service; every update is audited with a field-level diff. Numbering formats are
  * validated with shared `validateDocumentNumberFormat()` (≤ 16 chars) before saving.
@@ -28,7 +29,7 @@ const settingsSchema = new Schema(
     _id: { type: String, default: SETTINGS_ID },
 
     company: {
-      name: { type: String, required: true, trim: true },
+      name: { type: String, trim: true },
       legalName: { type: String, trim: true },
       logo: { type: imageSchema },
       address: { type: addressSchema },
@@ -50,18 +51,18 @@ const settingsSchema = new Schema(
         isActive: { type: Boolean, default: false },
       },
       safetyPageSlug: { type: String, default: 'safety-instructions' },
+      // Shown on the website after an enquiry / order is submitted.
+      messages: {
+        enquiryReceived: { type: String, maxlength: 500 },
+        checkoutConfirmed: { type: String, maxlength: 500 },
+      },
     },
 
     // Prices are always GST-inclusive; taxable value is back-calculated.
     tax: {
-      sellerStateCode: {
-        type: String,
-        enum: INDIAN_STATE_CODES,
-        default: DEFAULT_SELLER_STATE_CODE,
-        required: true,
-      },
-      defaultHsn: { type: String, match: HSN_REGEX, default: DEFAULT_HSN, required: true },
-      defaultTaxRate: { type: Number, min: 0, max: 28, default: DEFAULT_TAX_RATE, required: true },
+      sellerStateCode: { type: String, enum: INDIAN_STATE_CODES },
+      defaultHsn: { type: String, match: HSN_REGEX },
+      defaultTaxRate: { type: Number, min: 0, max: 28 },
     },
 
     pricing: {
@@ -75,10 +76,10 @@ const settingsSchema = new Schema(
 
     invoice: {
       // Tokens: {PREFIX} {FY} {SEQ:n}. Numbers restart every financial year (April–March).
-      prefix: { type: String, default: DEFAULT_INVOICE_PREFIX, required: true },
+      prefix: { type: String, trim: true },
       // {PREFIX} in the credit note format (the default format spells out CN).
       creditNotePrefix: { type: String, default: 'CN', required: true },
-      format: { type: String, default: DEFAULT_INVOICE_FORMAT, required: true }, // SMC/26-27/00042
+      format: { type: String, default: DEFAULT_INVOICE_FORMAT, required: true }, // e.g. ABC/26-27/00042
       creditNoteFormat: { type: String, default: DEFAULT_CREDIT_NOTE_FORMAT, required: true }, // CN/26-27/00001
       terms: { type: String, maxlength: 2000 },
       footerNote: { type: String, maxlength: 500 },
@@ -91,6 +92,10 @@ const settingsSchema = new Schema(
       upiPayeeName: { type: String, trim: true, maxlength: 100 },
       upiQrImage: { type: imageSchema }, // optional uploaded QR; otherwise generated from upiId
       showUpiQrOnStorefront: { type: Boolean, default: true, required: true },
+      acceptedMethods: {
+        type: [{ type: String, enum: PAYMENT_METHODS }],
+        default: () => [...PAYMENT_METHODS],
+      },
       bank: {
         accountName: { type: String, trim: true },
         accountNumber: { type: String, trim: true },
@@ -103,7 +108,7 @@ const settingsSchema = new Schema(
 
     order: {
       numberPrefix: { type: String, default: 'ORD', required: true },
-      defaultMinOrderValue: { type: Number, default: 300_000, required: true }, // paise (₹3,000)
+      defaultMinOrderValue: { type: Number, default: 0, required: true }, // paise; 0 = no minimum
       // Checkout-mode orders (stock committed at placement) unpaid after this long are cancelled.
       autoCancelUnpaidCheckoutHours: { type: Number, default: 48, min: 1, required: true },
       packingChargePct: { type: Number, default: 0, min: 0, max: 20 },
@@ -120,7 +125,7 @@ const settingsSchema = new Schema(
       adminAlertEmails: { type: [String], default: [] },
     },
 
-    // Customised WhatsApp messages; events not listed use DEFAULT_WHATSAPP_MESSAGES.
+    // WhatsApp message per event (starter texts added once; an event without one has no button).
     whatsappTemplates: {
       type: [
         new Schema(
@@ -133,6 +138,16 @@ const settingsSchema = new Schema(
       ],
       default: [],
     },
+
+    // Notes printed on the price list and packing slip.
+    documents: {
+      priceListNote: { type: String, maxlength: 500 },
+      priceListFooter: { type: String, maxlength: 500 },
+      packingSlipNote: { type: String, maxlength: 500 },
+    },
+
+    /** When the starter texts were copied in (once; see ensureSettings). */
+    starterTextsAddedAt: { type: Date },
 
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },

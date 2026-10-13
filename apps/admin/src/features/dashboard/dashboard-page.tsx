@@ -20,6 +20,8 @@ import { money, number, plural } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { useDemand, useLowStock, useProducts } from '../catalog/api';
 import { useDashboard } from '../orders/api';
+import { useRuntimeSettings } from '../settings/api';
+import { SetupChecklist } from '../settings/setup-checklist';
 import { OrderStatusBadge, stateName } from '../orders/order-bits';
 
 function Kpi({
@@ -122,6 +124,7 @@ export function DashboardPage() {
   const total = (meta: unknown) => (meta as { total?: number } | undefined)?.total ?? 0;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const runtime = useRuntimeSettings().data;
   const pending = summary.isPending;
   const seasonName = d?.season.name ?? 'Last 30 days';
 
@@ -135,6 +138,8 @@ export function DashboardPage() {
             : 'Season overview.'
         }
       />
+
+      <SetupChecklist setup={runtime?.setup} />
 
       {summary.isError ? (
         <div className="mb-4">

@@ -171,6 +171,9 @@ export function useOrderMutations(id?: string) {
 
 export async function whatsappLink(id: string, event: WhatsAppEvent) {
   return (
-    await api.get<{ url: string; message: string; phone: string }>(`/orders/${id}/whatsapp-link`, { event })
+    await api.get<{ url: string; message: string; phone: string; warnings: string[] }>(
+      `/orders/${id}/whatsapp-link`,
+      { event },
+    )
   ).data;
 }

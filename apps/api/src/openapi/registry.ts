@@ -112,7 +112,7 @@ export class ApiDocs {
       info: {
         ...info,
         description:
-          'Sakthimaan Crackers API. All responses use the envelope `{ success, data, meta? }` or ' +
+          'Store admin API. All responses use the envelope `{ success, data, meta? }` or ' +
           '`{ success: false, error: { code, message, details? } }`. Amounts are integer paise.',
       },
       servers: [{ url: '/' }],

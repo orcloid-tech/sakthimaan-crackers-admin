@@ -49,7 +49,7 @@ const productSchema = new Schema(
     // absolute edits must send the expected stockVersion (optimistic concurrency).
     stock: { type: Number, default: 0, min: 0, required: true, validate: integerValidator },
     stockVersion: { type: Number, default: 0, required: true },
-    lowStockThreshold: { type: Number, default: 10, min: 0 },
+    lowStockThreshold: { type: Number, min: 0 }, // set from Settings when the product is created
     trackBatches: { type: Boolean, default: false, required: true },
 
     images: { type: [imageSchema], default: [] },

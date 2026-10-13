@@ -520,3 +520,14 @@ Orders list (status chips, payment / state / date filters, search by order no., 
 ### Enquiry delivery details
 
 While an order is an enquiry, staff can change the delivery address and contact (`PATCH /orders/:id` with `address` / `customer`). The bill is recalculated, so a different state switches CGST+SGST ↔ IGST and picks up that state's zone, minimum and delivery terms.
+
+## 13. No business data in code
+
+Every business value comes from the database (Settings or its collection). Code holds only rules and neutral behaviour defaults.
+
+- **Business details have no defaults.** Store name, legal name, address, phones, GSTIN, licence, logo, UPI/bank, seller state, default GST rate and HSN, invoice prefix and delivery states start empty. `services/setup.ts` lists what is missing and what it holds up: orders need the seller state, GST rates and at least one delivery state; invoices also need the name, GSTIN, address and prefix. The dashboard and Settings show this checklist. Actions that need a missing value fail with `409 SETUP_INCOMPLETE`, naming what to fill in; nothing is filled in silently.
+- **Starter texts are copied into Settings once** (`ensureSettings` at startup): WhatsApp messages, website confirmation messages, price list and packing slip notes, invoice footer. After that the app reads only what is saved. An empty WhatsApp message disables that button, and the editors offer "Use starter text".
+- **Neutral behaviour defaults** are written to the database when the settings document is created, and are editable: rounding mode, order and credit-note prefixes (`ORD`, `CN`), number format, low-stock level, checkout auto-cancel hours, 0% packing charge, no minimum order, accepted payment methods.
+- **Delivery states** are created switched off (`ensureStates`); a state is never assumed serviceable.
+- **Branding** (sidebar, sign-in page, tab title, email sender name and subject) comes from `GET /api/v1/branding` / Settings, with neutral wording ("Store admin") until set.
+- **Seed** writes the sample business values explicitly; the app runs on an empty database with only a super admin.

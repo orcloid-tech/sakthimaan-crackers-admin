@@ -1,6 +1,5 @@
 import type { ClientSession, HydratedDocument, Types } from 'mongoose';
 import {
-  DEFAULT_WHATSAPP_MESSAGES,
   STOCK_COMMITTED_STATUSES,
   buildUpiUri,
   buildWhatsAppLink,
@@ -52,6 +51,7 @@ import { withTransaction } from '../../utils/transaction.js';
 import type { AuditActor, AuditService } from '../audit.service.js';
 import type { InventoryService } from '../catalog/inventory.service.js';
 import type { SettingsCache } from '../settings-cache.js';
+import { assertCanInvoice } from '../setup.js';
 import { nextCreditNoteNo, nextInvoiceNo, nextOrderNo } from './numbering.js';
 import type { BuiltOrder, OrderBuilder } from './order-builder.js';
 
@@ -125,7 +125,7 @@ export class OrderService {
       throw new AppError(
         409,
         'STORE_CLOSED',
-        settings.storefront.closedMessage || 'Orders are closed right now.',
+        settings.storefront.closedMessage || 'The store is not taking orders right now.',
       );
     }
     const mode = settings?.storefront?.orderMode ?? 'enquiry';
@@ -139,16 +139,16 @@ export class OrderService {
       status: order.status,
       grandTotal: order.pricing.grandTotal,
       message:
-        mode === 'enquiry'
-          ? 'Thank you! We have received your enquiry. Our team will call you to confirm the list and the total.'
-          : 'Thank you! Your order is confirmed. Please pay using the UPI details below and send us the screenshot.',
+        (mode === 'enquiry'
+          ? settings?.storefront?.messages?.enquiryReceived
+          : settings?.storefront?.messages?.checkoutConfirmed) || null,
       payment:
         mode === 'checkout' && upiId
           ? {
               upiId,
               upiUri: buildUpiUri({
                 vpa: upiId,
-                payeeName: settings?.payment?.upiPayeeName ?? settings?.company?.name ?? 'Store',
+                payeeName: settings?.payment?.upiPayeeName || settings?.company?.name || upiId,
                 amount: order.pricing.grandTotal,
                 note: order.orderNo,
               }),
@@ -997,6 +997,7 @@ export class OrderService {
     if (!INVOICEABLE.includes(order.status))
       throw conflict('INVALID_TRANSITION', 'Confirm the order before issuing the invoice.');
     const settings = await this.deps.settings.get();
+    assertCanInvoice(settings);
     const who = auditActor(actor);
     await withTransaction(async (session) => {
       const { number, seq, financialYear } = await nextInvoiceNo(settings, session);
@@ -1110,24 +1111,35 @@ export class OrderService {
   async whatsappLink(
     id: string,
     event: WhatsAppEvent,
-  ): Promise<{ url: string; message: string; phone: string }> {
+  ): Promise<{ url: string; message: string; phone: string; warnings: string[] }> {
     const order = await OrderModel.findById(id).lean();
     if (!order) throw notFound('Order');
     const settings = await this.deps.settings.get();
     const due = Math.max(0, order.pricing.grandTotal - order.amountPaid);
-    const template =
-      settings?.whatsappTemplates?.find((t) => t.event === event)?.message ??
-      DEFAULT_WHATSAPP_MESSAGES[event];
+    const template = settings?.whatsappTemplates?.find((t) => t.event === event)?.message;
+    if (!template) {
+      throw new AppError(
+        409,
+        'SETUP_INCOMPLETE',
+        'There is no WhatsApp message for this yet. Add it in Settings → WhatsApp.',
+      );
+    }
+    // Tell staff when the message mentions something Settings doesn't have yet.
+    const warnings: string[] = [];
+    if (template.includes('{{upiId}}') && !settings?.payment?.upiId)
+      warnings.push('UPI ID is not set in Settings, so it is left out of the message.');
+    if (template.includes('{{store}}') && !settings?.company?.name)
+      warnings.push('Store name is not set in Settings, so it is left out of the message.');
     const message = renderTemplate(template, {
       name: order.customerSnapshot.name.split(' ')[0] ?? order.customerSnapshot.name,
       orderNo: order.orderNo,
       total: formatINR(order.pricing.grandTotal),
       due: formatINR(due),
-      upiId: settings?.payment?.upiId ?? '(ask us)',
+      upiId: settings?.payment?.upiId ?? '',
       transport: order.dispatch?.transportName ?? '',
       lr: order.dispatch?.lrNumber ?? '',
       boxes: order.dispatch?.boxes ?? '',
-      store: settings?.company?.name ?? 'us',
+      store: settings?.company?.name ?? '',
       reason: order.cancelReason ? `Reason: ${order.cancelReason}.` : '',
     })
       // Keep line breaks staff put in custom messages; tidy spaces left by empty fields.
@@ -1139,6 +1151,7 @@ export class OrderService {
       url: buildWhatsAppLink(order.customerSnapshot.phone, message),
       message,
       phone: order.customerSnapshot.phone,
+      warnings,
     };
   }
 
@@ -1331,7 +1344,8 @@ function documentSnapshot(order: OrderDoc, settings: Settings | null) {
   items.forEach((i) => add(i.hsn, i.taxRate, i));
   const ch = order.pricing.charges;
   if (ch && (ch.taxableValue ?? 0) > 0) {
-    add(ch.hsn ?? items[0]?.hsn ?? '3604', ch.taxRate ?? 18, {
+    // The order saved the HSN / rate its charges were taxed at (from Settings at the time).
+    add(ch.hsn ?? '', ch.taxRate ?? 0, {
       taxableValue: ch.taxableValue ?? 0,
       cgst: ch.cgst ?? 0,
       sgst: ch.sgst ?? 0,
@@ -1343,7 +1357,7 @@ function documentSnapshot(order: OrderDoc, settings: Settings | null) {
     order: order._id,
     orderNo: order.orderNo,
     seller: {
-      name: company?.legalName || company?.name || 'Sakthimaan Crackers',
+      name: company?.legalName || company?.name || '', // assertCanInvoice ensures a name
       legalName: company?.legalName,
       gstin: company?.gstin,
       licenseNumber: company?.licenseNumber,

@@ -79,6 +79,8 @@ export interface AuthServiceDeps {
   audit: AuditService;
   mailer: Mailer;
   twoFactor: TwoFactorProviders;
+  /** Store name for emails (from Settings). */
+  storeName?: () => Promise<string | null>;
 }
 
 export class AuthService {
@@ -386,10 +388,12 @@ export class AuthService {
     const link = new URL('/reset-password', this.deps.env.ADMIN_APP_URL);
     link.searchParams.set('token', raw);
     // Not awaited: keeps the response time independent of whether a mail was sent.
+    const store = (await this.deps.storeName?.().catch(() => null)) ?? null;
     this.deps.mailer
       .send({
+        ...(store ? { fromName: store } : {}),
         to: user.email,
-        subject: 'Reset your Sakthimaan Crackers admin password',
+        subject: store ? `Reset your ${store} admin password` : 'Reset your admin password',
         text:
           `Hello ${user.name},\n\nUse this link to set a new password. It expires in ` +
           `${this.deps.env.PASSWORD_RESET_TTL_MINUTES} minutes and can be used once:\n\n${link.toString()}\n\n` +

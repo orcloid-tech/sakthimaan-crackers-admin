@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ORDER_MODES } from '../enums.js';
+import { ORDER_MODES, PAYMENT_METHODS } from '../enums.js';
 import { validateDocumentNumberFormat } from '../document-number.js';
 import { HSN_REGEX } from '../tax.js';
 import { NET_PRICE_ROUNDING_MODES } from '../money.js';
@@ -32,6 +32,10 @@ export const storefrontSettingsSchema = z.strictObject({
   isOpen: z.boolean(),
   closedMessage: optionalText(500),
   orderMode: z.enum(ORDER_MODES),
+  /** Shown to the customer after submitting on the website. */
+  messages: z
+    .strictObject({ enquiryReceived: optionalText(500), checkoutConfirmed: optionalText(500) })
+    .default({}),
   announcement: z
     .strictObject({
       text: optionalText(300),
@@ -42,9 +46,9 @@ export const storefrontSettingsSchema = z.strictObject({
 });
 
 export const taxSettingsSchema = z.strictObject({
-  sellerStateCode: z.enum(INDIAN_STATE_CODES),
-  defaultHsn: z.string().trim().regex(HSN_REGEX, 'HSN must be 4, 6 or 8 digits'),
-  defaultTaxRate: taxRateSchema,
+  sellerStateCode: z.enum(INDIAN_STATE_CODES).optional(),
+  defaultHsn: z.string().trim().regex(HSN_REGEX, 'HSN must be 4, 6 or 8 digits').optional(),
+  defaultTaxRate: taxRateSchema.optional(),
   netPriceRounding: z.enum(NET_PRICE_ROUNDING_MODES),
 });
 
@@ -56,7 +60,7 @@ const prefixSchema = z
 
 export const invoiceSettingsSchema = z
   .strictObject({
-    prefix: prefixSchema,
+    prefix: prefixSchema.optional(),
     creditNotePrefix: prefixSchema,
     format: z.string().trim().max(40),
     creditNoteFormat: z.string().trim().max(40),
@@ -65,7 +69,7 @@ export const invoiceSettingsSchema = z
     showUpiQr: z.boolean(),
   })
   .superRefine((v, ctx) => {
-    for (const msg of validateDocumentNumberFormat(v.format, v.prefix)) {
+    for (const msg of v.prefix ? validateDocumentNumberFormat(v.format, v.prefix) : []) {
       ctx.addIssue({ code: 'custom', path: ['format'], message: msg });
     }
     for (const msg of validateDocumentNumberFormat(v.creditNoteFormat, v.creditNotePrefix)) {
@@ -81,6 +85,8 @@ export const paymentSettingsSchema = z.strictObject({
     .optional(),
   upiPayeeName: optionalText(100),
   showUpiQrOnStorefront: z.boolean(),
+  /** Ways customers can pay; staff record only these. */
+  acceptedMethods: z.array(z.enum(PAYMENT_METHODS)).min(1, 'Accept at least one payment method').max(3),
   bank: z
     .strictObject({
       accountName: plainText(120).pipe(z.string().min(2, 'Enter the account name')),
@@ -112,9 +118,16 @@ export const orderSettingsSchema = z.strictObject({
   defaultLowStockThreshold: z.number().int().min(0).max(100_000),
 });
 
+/** Notes printed on documents (empty = not printed). */
+export const documentsSettingsSchema = z.strictObject({
+  priceListNote: optionalText(500),
+  priceListFooter: optionalText(500),
+  packingSlipNote: optionalText(500),
+});
+
 export const WHATSAPP_EVENTS = whatsappQuery.shape.event.options;
 
-/** Event → message. An empty string resets that message to the built-in default. */
+/** Event → message. An empty string removes the message (its WhatsApp button is then disabled). */
 export const whatsappTemplatesSchema = z.partialRecord(z.enum(WHATSAPP_EVENTS), z.string().trim().max(1000));
 
 export const settingsUpdateSchema = z
@@ -127,6 +140,7 @@ export const settingsUpdateSchema = z
     payment: paymentSettingsSchema.optional(),
     order: orderSettingsSchema.optional(),
     whatsappTemplates: whatsappTemplatesSchema.optional(),
+    documents: documentsSettingsSchema.optional(),
   })
   .refine((v) => Object.keys(v).length > 1, 'Nothing to update');
 export type SettingsUpdateInput = z.infer<typeof settingsUpdateSchema>;
@@ -134,7 +148,7 @@ export type SettingsSection = Exclude<keyof SettingsUpdateInput, 'version'>;
 
 export const seasonSchema = z
   .strictObject({
-    name: plainText(60).pipe(z.string().min(3, 'Name the season, e.g. Diwali 2026')),
+    name: plainText(60).pipe(z.string().min(3, 'Name the season')),
     festivalDate: z.coerce.date(),
     startDate: z.coerce.date(),
     endDate: z.coerce.date(),

@@ -40,7 +40,7 @@ export const PRODUCT_IMPORT_COLUMNS = [
     required: false,
     help: 'Discount %, e.g. 80 or 82.5. Default 0. Net price is calculated automatically.',
   },
-  { key: 'hsn', required: false, help: 'Leave blank to use the category/store default (3604).' },
+  { key: 'hsn', required: false, help: 'Leave blank to use the category or store default (Settings).' },
   { key: 'gst_rate', required: false, help: 'GST % e.g. 18. Leave blank to use the category/store default.' },
   {
     key: 'opening_stock',

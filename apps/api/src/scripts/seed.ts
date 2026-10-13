@@ -43,6 +43,7 @@ import {
 } from '../models/index.js';
 import { AuditService } from '../services/audit.service.js';
 import { InventoryService, type BatchAllocation } from '../services/catalog/inventory.service.js';
+import { ensureSettings } from '../services/runtime-settings.js';
 import { withTransaction } from '../utils/transaction.js';
 
 export const SEED_PASSWORD = 'Sakthimaan@2026';
@@ -760,6 +761,10 @@ async function run(): Promise<void> {
         orderMode: 'enquiry',
         announcement: { text: 'Diwali 2026 orders open: up to 85% off!', isActive: true },
       },
+      // Sample business values (the app has no defaults for these).
+      tax: { sellerStateCode: 'TN', defaultHsn: '3604', defaultTaxRate: 18 },
+      invoice: { prefix: 'SMC', creditNotePrefix: 'CN' },
+      order: { defaultMinOrderValue: rupees(3000) },
       payment: {
         upiId: 'sakthimaan@okaxis',
         upiPayeeName: 'Sakthimaan Crackers',
@@ -772,6 +777,7 @@ async function run(): Promise<void> {
         },
       },
     });
+    await ensureSettings(); // starter WhatsApp / website / document texts
     await SeasonModel.create([
       {
         name: 'Diwali 2025',

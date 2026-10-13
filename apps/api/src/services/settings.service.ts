@@ -1,13 +1,9 @@
 import type { ClientSession, HydratedDocument } from 'mongoose';
 import {
   DEFAULT_CREDIT_NOTE_FORMAT,
-  DEFAULT_HSN,
   DEFAULT_INVOICE_FORMAT,
-  DEFAULT_INVOICE_PREFIX,
   DEFAULT_NET_PRICE_ROUNDING,
-  DEFAULT_SELLER_STATE_CODE,
-  DEFAULT_TAX_RATE,
-  DEFAULT_WHATSAPP_MESSAGES,
+  PAYMENT_METHODS,
   WHATSAPP_EVENTS,
   computeNetPrice,
   counterKey,
@@ -29,6 +25,7 @@ import {
   ProductModel,
   SETTINGS_ID,
   SeasonModel,
+  ServiceStateModel,
   SettingsModel,
   pricingContext,
   type Settings,
@@ -37,7 +34,9 @@ import { processImage, type StorageProvider } from '../providers/storage/index.j
 import { conflict, forbidden, notFound } from '../utils/app-error.js';
 import { withTransaction } from '../utils/transaction.js';
 import { diffFields, type AuditActor, type AuditService } from './audit.service.js';
+import { ensureSettings } from './runtime-settings.js';
 import type { SettingsCache } from './settings-cache.js';
+import { setupStatus } from './setup.js';
 
 type SettingsDoc = HydratedDocument<Settings>;
 
@@ -82,12 +81,17 @@ export class SettingsService {
   async runtime(): Promise<RuntimeSettingsDto> {
     const s = await this.deps.cache.get();
     return {
-      companyName: s?.company?.name ?? 'Sakthimaan Crackers',
+      companyName: s?.company?.name || null,
+      logoUrl: s?.company?.logo?.url ?? null,
       netPriceRounding: s?.pricing?.netPriceRounding ?? DEFAULT_NET_PRICE_ROUNDING,
-      defaultHsn: s?.tax?.defaultHsn ?? DEFAULT_HSN,
-      defaultTaxRate: s?.tax?.defaultTaxRate ?? DEFAULT_TAX_RATE,
-      sellerStateCode: s?.tax?.sellerStateCode ?? DEFAULT_SELLER_STATE_CODE,
-      defaultLowStockThreshold: s?.inventory?.defaultLowStockThreshold ?? 10,
+      defaultHsn: s?.tax?.defaultHsn ?? null,
+      defaultTaxRate: s?.tax?.defaultTaxRate ?? null,
+      sellerStateCode: s?.tax?.sellerStateCode ?? null,
+      defaultLowStockThreshold: s?.inventory?.defaultLowStockThreshold ?? 0,
+      acceptedMethods: s?.payment?.acceptedMethods?.length
+        ? [...s.payment.acceptedMethods]
+        : [...PAYMENT_METHODS],
+      setup: setupStatus(s, await ServiceStateModel.countDocuments({ isServiceable: true })),
       isOpen: s?.storefront?.isOpen ?? true,
       orderMode: s?.storefront?.orderMode ?? 'enquiry',
     };
@@ -158,7 +162,7 @@ export class SettingsService {
           WhatsAppEvent,
           string,
         ][]) {
-          if (!message || message === DEFAULT_WHATSAPP_MESSAGES[event]) current.delete(event);
+          if (!message) current.delete(event);
           else current.set(event, message);
         }
         doc.set(
@@ -166,6 +170,10 @@ export class SettingsService {
           [...current].map(([event, message]) => ({ event, message })),
         );
         paths.push('whatsappTemplates');
+      }
+      if (sections.documents) {
+        doc.set('documents', sections.documents);
+        touch('documents', sections.documents);
       }
       doc.set('updatedBy', actor.user);
       await doc.save({ session });
@@ -364,13 +372,9 @@ export class SettingsService {
   private async load(session?: ClientSession): Promise<SettingsDoc> {
     const doc = await SettingsModel.findById(SETTINGS_ID).session(session ?? null);
     if (doc) return doc;
-    // First run without the seed: start from the schema defaults.
-    const [created] = await SettingsModel.create(
-      [{ _id: SETTINGS_ID, company: { name: 'Sakthimaan Crackers' } }],
-      {
-        session,
-      },
-    );
+    // First run: an empty store (business details are entered in Settings).
+    await ensureSettings(session);
+    const created = await SettingsModel.findById(SETTINGS_ID).session(session ?? null);
     if (!created) throw new Error('Could not create settings');
     return created;
   }
@@ -384,21 +388,22 @@ export class SettingsService {
       CounterModel.findById(counterKey('invoice', fy)).lean(),
       CounterModel.findById(counterKey('credit_note', fy)).lean(),
     ]);
-    const sample = (format: string, prefix: string, seq: number) => {
+    const sample = (format: string, prefix: string | null | undefined, seq: number) => {
+      if (!prefix) return null;
       try {
         return formatDocumentNumber(format, { prefix, fy, seq });
       } catch {
-        return '—';
+        return null;
       }
     };
-    const custom = new Map((s.whatsappTemplates ?? []).map((t) => [t.event, t.message]));
+    const saved = new Map((s.whatsappTemplates ?? []).map((t) => [t.event, t.message]));
     const a = c.address;
     const bank = s.payment?.bank;
     return {
       version: s.__v,
       updatedAt: iso(s.updatedAt),
       company: {
-        name: c.name ?? 'Sakthimaan Crackers',
+        name: c.name || null,
         legalName: c.legalName ?? null,
         logoUrl: c.logo?.url ?? null,
         address: a
@@ -428,26 +433,26 @@ export class SettingsService {
           linkUrl: s.storefront?.announcement?.linkUrl ?? null,
           isActive: s.storefront?.announcement?.isActive ?? false,
         },
+        messages: {
+          enquiryReceived: s.storefront?.messages?.enquiryReceived ?? null,
+          checkoutConfirmed: s.storefront?.messages?.checkoutConfirmed ?? null,
+        },
       },
       tax: {
-        sellerStateCode: s.tax?.sellerStateCode ?? DEFAULT_SELLER_STATE_CODE,
-        defaultHsn: s.tax?.defaultHsn ?? DEFAULT_HSN,
-        defaultTaxRate: s.tax?.defaultTaxRate ?? DEFAULT_TAX_RATE,
+        sellerStateCode: s.tax?.sellerStateCode ?? null,
+        defaultHsn: s.tax?.defaultHsn ?? null,
+        defaultTaxRate: s.tax?.defaultTaxRate ?? null,
         netPriceRounding: s.pricing?.netPriceRounding ?? DEFAULT_NET_PRICE_ROUNDING,
       },
       invoice: {
-        prefix: inv?.prefix ?? DEFAULT_INVOICE_PREFIX,
+        prefix: inv?.prefix || null,
         creditNotePrefix: inv?.creditNotePrefix ?? 'CN',
         format: inv?.format ?? DEFAULT_INVOICE_FORMAT,
         creditNoteFormat: inv?.creditNoteFormat ?? DEFAULT_CREDIT_NOTE_FORMAT,
         terms: inv?.terms ?? null,
         footerNote: inv?.footerNote ?? null,
         showUpiQr: inv?.showUpiQr ?? true,
-        sampleInvoiceNo: sample(
-          inv?.format ?? DEFAULT_INVOICE_FORMAT,
-          inv?.prefix ?? DEFAULT_INVOICE_PREFIX,
-          (invSeq?.seq ?? 0) + 1,
-        ),
+        sampleInvoiceNo: sample(inv?.format ?? DEFAULT_INVOICE_FORMAT, inv?.prefix, (invSeq?.seq ?? 0) + 1),
         sampleCreditNoteNo: sample(
           inv?.creditNoteFormat ?? DEFAULT_CREDIT_NOTE_FORMAT,
           inv?.creditNotePrefix ?? 'CN',
@@ -459,6 +464,9 @@ export class SettingsService {
         upiPayeeName: s.payment?.upiPayeeName ?? null,
         upiQrUrl: s.payment?.upiQrImage?.url ?? null,
         showUpiQrOnStorefront: s.payment?.showUpiQrOnStorefront ?? true,
+        acceptedMethods: s.payment?.acceptedMethods?.length
+          ? [...s.payment.acceptedMethods]
+          : [...PAYMENT_METHODS],
         bank:
           bank?.accountNumber && bank.ifsc
             ? {
@@ -476,14 +484,17 @@ export class SettingsService {
         defaultMinOrderValue: s.order?.defaultMinOrderValue ?? 0,
         packingChargePct: s.order?.packingChargePct ?? 0,
         autoCancelUnpaidCheckoutHours: s.order?.autoCancelUnpaidCheckoutHours ?? 48,
-        defaultLowStockThreshold: s.inventory?.defaultLowStockThreshold ?? 10,
+        defaultLowStockThreshold: s.inventory?.defaultLowStockThreshold ?? 0,
       },
       whatsappTemplates: Object.fromEntries(
-        WHATSAPP_EVENTS.map((e) => [
-          e,
-          { message: custom.get(e) ?? DEFAULT_WHATSAPP_MESSAGES[e], isCustom: custom.has(e) },
-        ]),
+        WHATSAPP_EVENTS.map((e) => [e, saved.get(e) ?? null]),
       ) as SettingsDto['whatsappTemplates'],
+      documents: {
+        priceListNote: s.documents?.priceListNote ?? null,
+        priceListFooter: s.documents?.priceListFooter ?? null,
+        packingSlipNote: s.documents?.packingSlipNote ?? null,
+      },
+      setup: setupStatus(s, await ServiceStateModel.countDocuments({ isServiceable: true })),
     };
   }
 }

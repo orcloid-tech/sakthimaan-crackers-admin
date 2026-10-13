@@ -4,17 +4,21 @@ import { toast } from 'sonner';
 import {
   INDIAN_STATES,
   NET_PRICE_ROUNDING_MODES,
+  PAYMENT_METHODS,
+  STARTER_TEXTS,
   computeNetPrice,
   financialYearOf,
   formatDocumentNumber,
   type IndianStateCode,
   type NetPriceRounding,
   type OrderMode,
+  type PaymentMethod,
   type SettingsDto,
 } from '@sakthimaan/shared';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Field, Section, Spinner } from '@/components/common';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,10 +26,14 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { errorMessage } from '@/lib/api';
 import { money, parseRupees, rupeesText } from '@/lib/format';
+import { METHOD_LABEL } from '../orders/order-bits';
 import { useSettingsMutations } from './api';
 import { SaveBar, opt, useSaveSection } from './form-bits';
 
 type Props = { s: SettingsDto; canEdit: boolean };
+
+/** Empty state choice (typed, so form state accepts a state code later). */
+const NO_STATE: IndianStateCode | '' = '';
 
 function Form({
   onSubmit,
@@ -90,6 +98,44 @@ function TextField({
         className={className}
         {...props}
       />
+    </Field>
+  );
+}
+
+/** A longer text with an optional "use starter text" button (starter texts are suggestions only). */
+function NoteField({
+  id,
+  label,
+  value,
+  onChange,
+  starter,
+  hint,
+  rows = 2,
+  error,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  starter?: string;
+  hint?: ReactNode;
+  rows?: number;
+  error?: string;
+}) {
+  return (
+    <Field label={label} htmlFor={id} error={error} hint={hint}>
+      <Textarea id={id} rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
+      {starter && !value.trim() ? (
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="h-auto justify-self-start p-0"
+          onClick={() => onChange(starter)}
+        >
+          Use starter text
+        </Button>
+      ) : null}
     </Field>
   );
 }
@@ -205,7 +251,7 @@ export function CompanySection({ s, canEdit }: Props) {
   const c = s.company;
   const a = c.address;
   const [f, setF] = useState({
-    name: c.name,
+    name: c.name ?? '',
     legalName: c.legalName ?? '',
     phones: c.phones.join(', '),
     whatsappNumber: c.whatsappNumber ?? '',
@@ -217,18 +263,19 @@ export function CompanySection({ s, canEdit }: Props) {
     line2: a?.line2 ?? '',
     city: a?.city ?? '',
     district: a?.district ?? '',
-    stateCode: a?.stateCode ?? s.tax.sellerStateCode,
+    stateCode: a?.stateCode ?? s.tax.sellerStateCode ?? NO_STATE,
     pincode: a?.pincode ?? '',
   });
   const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
-  const { save, errors, saving } = useSaveSection('company');
+  const { save, errors, setErrors, saving } = useSaveSection('company');
   const gstinState =
     f.gstin.length >= 2 ? INDIAN_STATES.find((st) => st.gstCode === f.gstin.slice(0, 2)) : undefined;
 
   return (
     <Form
       canEdit={canEdit}
-      onSubmit={() =>
+      onSubmit={() => {
+        if (f.line1.trim() && !f.stateCode) return setErrors({ 'address.stateCode': 'Choose the state' });
         void save(s.version, {
           name: f.name,
           legalName: opt(f.legalName),
@@ -241,18 +288,19 @@ export function CompanySection({ s, canEdit }: Props) {
           gstin: opt(f.gstin),
           licenseNumber: opt(f.licenseNumber),
           licenseValidTill: opt(f.licenseValidTill),
-          address: f.line1.trim()
-            ? {
-                line1: f.line1,
-                line2: opt(f.line2),
-                city: f.city,
-                district: opt(f.district),
-                stateCode: f.stateCode,
-                pincode: f.pincode,
-              }
-            : undefined,
-        })
-      }
+          address:
+            f.line1.trim() && f.stateCode
+              ? {
+                  line1: f.line1,
+                  line2: opt(f.line2),
+                  city: f.city,
+                  district: opt(f.district),
+                  stateCode: f.stateCode,
+                  pincode: f.pincode,
+                }
+              : undefined,
+        });
+      }}
     >
       <Section
         title="Business"
@@ -289,7 +337,7 @@ export function CompanySection({ s, canEdit }: Props) {
               value={f.gstin}
               onChange={(v) => set('gstin')(v.toUpperCase())}
               error={errors.gstin}
-              hint={gstinState ? `Registered in ${gstinState.name}` : '15 characters'}
+              hint={gstinState ? `Registered in ${gstinState.name}` : '15 characters, needed for invoices'}
               maxLength={15}
             />
             <TextField
@@ -340,7 +388,7 @@ export function CompanySection({ s, canEdit }: Props) {
           />
         </div>
       </Section>
-      <Section title="Address">
+      <Section title="Address" description="Printed on invoices. Needed before the first invoice.">
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField
             id="c-line1"
@@ -406,7 +454,10 @@ export function StoreSection({ s, canEdit }: Props) {
     text: st.announcement.text ?? '',
     linkUrl: st.announcement.linkUrl ?? '',
     isActive: st.announcement.isActive,
+    enquiryReceived: st.messages.enquiryReceived ?? '',
+    checkoutConfirmed: st.messages.checkoutConfirmed ?? '',
   });
+  const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
   const { save, errors, saving } = useSaveSection('storefront');
   return (
     <Form
@@ -422,6 +473,10 @@ export function StoreSection({ s, canEdit }: Props) {
               text: opt(f.text),
               linkUrl: opt(f.linkUrl),
               isActive: f.isActive && !!f.text.trim(),
+            },
+            messages: {
+              enquiryReceived: opt(f.enquiryReceived),
+              checkoutConfirmed: opt(f.checkoutConfirmed),
             },
           },
           f.isOpen ? 'Saved. The store is open.' : 'Saved. The store is closed to new orders.',
@@ -454,8 +509,7 @@ export function StoreSection({ s, canEdit }: Props) {
               id="st-closed"
               rows={2}
               value={f.closedMessage}
-              placeholder="Orders for Diwali 2026 are closed. Thank you!"
-              onChange={(e) => setF((x) => ({ ...x, closedMessage: e.target.value }))}
+              onChange={(e) => set('closedMessage')(e.target.value)}
             />
           </Field>
         ) : null}
@@ -494,23 +548,40 @@ export function StoreSection({ s, canEdit }: Props) {
           </RadioGroup>
         </div>
       </Section>
+      <Section
+        title="Messages after ordering"
+        description="Shown on the website once a customer submits. Leave empty to show nothing extra."
+      >
+        <div className="grid gap-3">
+          <NoteField
+            id="st-msg-enq"
+            label="After an enquiry"
+            value={f.enquiryReceived}
+            onChange={set('enquiryReceived')}
+            starter={STARTER_TEXTS.enquiryReceived}
+            error={errors['messages.enquiryReceived']}
+          />
+          <NoteField
+            id="st-msg-co"
+            label="After a checkout order"
+            value={f.checkoutConfirmed}
+            onChange={set('checkoutConfirmed')}
+            starter={STARTER_TEXTS.checkoutConfirmed}
+            error={errors['messages.checkoutConfirmed']}
+          />
+        </div>
+      </Section>
       <Section title="Announcement bar" description="A short line at the top of the website.">
         <div className="grid gap-3">
           <Field label="Text" htmlFor="st-ann" error={errors['announcement.text']}>
-            <Input
-              id="st-ann"
-              value={f.text}
-              maxLength={300}
-              placeholder="Free delivery in Tamil Nadu above ₹10,000"
-              onChange={(e) => setF((x) => ({ ...x, text: e.target.value }))}
-            />
+            <Input id="st-ann" value={f.text} maxLength={300} onChange={(e) => set('text')(e.target.value)} />
           </Field>
           <TextField
             id="st-link"
             label="Link (optional)"
             type="url"
             value={f.linkUrl}
-            onChange={(v) => setF((x) => ({ ...x, linkUrl: v }))}
+            onChange={set('linkUrl')}
             error={errors['announcement.linkUrl']}
           />
           <label className="flex items-center gap-2 text-sm">
@@ -524,7 +595,7 @@ export function StoreSection({ s, canEdit }: Props) {
   );
 }
 
-// ------------------------------------------------------------------ tax, rounding, invoice numbers
+// ------------------------------------------------------------------ tax, rounding, invoice numbers, document notes
 
 const seqDigits = (format: string) => Number(/\{SEQ:(\d)\}/.exec(format)?.[1] ?? 5);
 const ROUNDING_TEXT: Record<NetPriceRounding, string> = {
@@ -534,42 +605,50 @@ const ROUNDING_TEXT: Record<NetPriceRounding, string> = {
 
 export function BillingSection({ s, canEdit }: Props) {
   const [tax, setTax] = useState({
-    sellerStateCode: s.tax.sellerStateCode,
-    defaultHsn: s.tax.defaultHsn,
-    defaultTaxRate: String(s.tax.defaultTaxRate),
+    sellerStateCode: s.tax.sellerStateCode ?? NO_STATE,
+    defaultHsn: s.tax.defaultHsn ?? '',
+    defaultTaxRate: s.tax.defaultTaxRate === null ? '' : String(s.tax.defaultTaxRate),
     netPriceRounding: s.tax.netPriceRounding,
   });
   const [inv, setInv] = useState({
-    prefix: s.invoice.prefix,
+    prefix: s.invoice.prefix ?? '',
     creditNotePrefix: s.invoice.creditNotePrefix,
     digits: String(seqDigits(s.invoice.format)),
     terms: s.invoice.terms ?? '',
     footerNote: s.invoice.footerNote ?? '',
     showUpiQr: s.invoice.showUpiQr,
   });
+  const [docs, setDocs] = useState({
+    priceListNote: s.documents.priceListNote ?? '',
+    priceListFooter: s.documents.priceListFooter ?? '',
+    packingSlipNote: s.documents.packingSlipNote ?? '',
+  });
   const taxSave = useSaveSection('tax');
   const invSave = useSaveSection('invoice');
+  const docSave = useSaveSection('documents');
   const [confirmRounding, setConfirmRounding] = useState(false);
   const roundingChanged = tax.netPriceRounding !== s.tax.netPriceRounding;
   const format = `{PREFIX}/{FY}/{SEQ:${inv.digits}}`;
   const fy = financialYearOf(new Date());
   const sample = (prefix: string) => {
+    if (!prefix) return 'Enter a prefix';
     try {
-      return formatDocumentNumber(format, { prefix: prefix.toUpperCase() || 'X', fy, seq: 42 });
+      return formatDocumentNumber(format, { prefix: prefix.toUpperCase(), fy, seq: 42 });
     } catch (err) {
       return err instanceof Error ? err.message : 'Too long';
     }
   };
   const prefixChanged =
-    inv.prefix !== s.invoice.prefix || inv.creditNotePrefix !== s.invoice.creditNotePrefix;
+    !!s.invoice.prefix &&
+    (inv.prefix !== s.invoice.prefix || inv.creditNotePrefix !== s.invoice.creditNotePrefix);
 
   const saveTax = () =>
     taxSave.save(
       s.version,
       {
-        sellerStateCode: tax.sellerStateCode,
-        defaultHsn: tax.defaultHsn,
-        defaultTaxRate: Number(tax.defaultTaxRate),
+        sellerStateCode: tax.sellerStateCode || undefined,
+        defaultHsn: opt(tax.defaultHsn),
+        defaultTaxRate: tax.defaultTaxRate.trim() === '' ? undefined : Number(tax.defaultTaxRate),
         netPriceRounding: tax.netPriceRounding,
       },
       roundingChanged ? 'Saved. All net prices were recalculated.' : 'Saved',
@@ -580,13 +659,14 @@ export function BillingSection({ s, canEdit }: Props) {
       <Form canEdit={canEdit} onSubmit={() => (roundingChanged ? setConfirmRounding(true) : void saveTax())}>
         <Section
           title="GST"
-          description="Prices are GST-inclusive. These defaults apply when a product and its category don't set their own."
+          description="Prices are GST-inclusive. The default rate and HSN apply when a product and its category don't set their own."
         >
           <div className="grid gap-3 sm:grid-cols-3">
             <Field
               label="Business state (place of supply)"
               htmlFor="t-state"
               error={taxSave.errors.sellerStateCode}
+              hint="Decides CGST + SGST or IGST. Needed for any order."
             >
               <StateSelect
                 id="t-state"
@@ -601,7 +681,7 @@ export function BillingSection({ s, canEdit }: Props) {
               value={tax.defaultHsn}
               onChange={(v) => setTax((x) => ({ ...x, defaultHsn: v }))}
               error={taxSave.errors.defaultHsn}
-              hint="Fireworks: 3604"
+              hint="4, 6 or 8 digits"
             />
             <TextField
               id="t-rate"
@@ -651,7 +731,7 @@ export function BillingSection({ s, canEdit }: Props) {
         canEdit={canEdit}
         onSubmit={() =>
           void invSave.save(s.version, {
-            prefix: inv.prefix,
+            prefix: opt(inv.prefix),
             creditNotePrefix: inv.creditNotePrefix,
             format,
             creditNoteFormat: format,
@@ -672,6 +752,7 @@ export function BillingSection({ s, canEdit }: Props) {
               className="uppercase"
               value={inv.prefix}
               maxLength={10}
+              placeholder="ABC"
               onChange={(v) => setInv((x) => ({ ...x, prefix: v.toUpperCase() }))}
               error={invSave.errors.prefix ?? invSave.errors.format}
               hint={<span className="font-mono">{sample(inv.prefix)}</span>}
@@ -701,10 +782,16 @@ export function BillingSection({ s, canEdit }: Props) {
               </Select>
             </Field>
           </div>
-          <p className="text-muted-foreground mt-2 text-xs">
-            Next invoice: <span className="font-mono">{s.invoice.sampleInvoiceNo}</span> · next credit note:{' '}
-            <span className="font-mono">{s.invoice.sampleCreditNoteNo}</span>
-          </p>
+          {s.invoice.sampleInvoiceNo ? (
+            <p className="text-muted-foreground mt-2 text-xs">
+              Next invoice: <span className="font-mono">{s.invoice.sampleInvoiceNo}</span> · next credit note:{' '}
+              <span className="font-mono">{s.invoice.sampleCreditNoteNo}</span>
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+              Set an invoice prefix before issuing the first invoice.
+            </p>
+          )}
           {prefixChanged ? (
             <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
               Changing the prefix during a financial year is allowed, but keep one series per year if your
@@ -714,20 +801,20 @@ export function BillingSection({ s, canEdit }: Props) {
         </Section>
         <Section title="Printed on invoices">
           <div className="grid gap-3">
-            <Field label="Terms" htmlFor="i-terms" error={invSave.errors.terms}>
-              <Textarea
-                id="i-terms"
-                rows={3}
-                value={inv.terms}
-                placeholder="Goods once sold cannot be taken back. Transport charges to be paid at delivery."
-                onChange={(e) => setInv((x) => ({ ...x, terms: e.target.value }))}
-              />
-            </Field>
-            <TextField
+            <NoteField
+              id="i-terms"
+              label="Terms"
+              rows={3}
+              value={inv.terms}
+              onChange={(v) => setInv((x) => ({ ...x, terms: v }))}
+              error={invSave.errors.terms}
+            />
+            <NoteField
               id="i-footer"
               label="Footer note"
               value={inv.footerNote}
               onChange={(v) => setInv((x) => ({ ...x, footerNote: v }))}
+              starter={STARTER_TEXTS.invoiceFooter}
               error={invSave.errors.footerNote}
             />
             <label className="flex items-center gap-2 text-sm">
@@ -740,6 +827,50 @@ export function BillingSection({ s, canEdit }: Props) {
           </div>
         </Section>
         {canEdit ? <SaveBar saving={invSave.saving} /> : null}
+      </Form>
+
+      <Form
+        canEdit={canEdit}
+        onSubmit={() =>
+          void docSave.save(s.version, {
+            priceListNote: opt(docs.priceListNote),
+            priceListFooter: opt(docs.priceListFooter),
+            packingSlipNote: opt(docs.packingSlipNote),
+          })
+        }
+      >
+        <Section
+          title="Price list & packing slip"
+          description="Printed on these documents. Leave empty to print nothing."
+        >
+          <div className="grid gap-3">
+            <NoteField
+              id="d-pl-note"
+              label="Price list: note under the title"
+              value={docs.priceListNote}
+              onChange={(v) => setDocs((x) => ({ ...x, priceListNote: v }))}
+              starter={STARTER_TEXTS.priceListNote}
+              error={docSave.errors.priceListNote}
+            />
+            <NoteField
+              id="d-pl-footer"
+              label="Price list: footer"
+              value={docs.priceListFooter}
+              onChange={(v) => setDocs((x) => ({ ...x, priceListFooter: v }))}
+              starter={STARTER_TEXTS.priceListFooter}
+              error={docSave.errors.priceListFooter}
+            />
+            <NoteField
+              id="d-ps-note"
+              label="Packing slip: handling note"
+              value={docs.packingSlipNote}
+              onChange={(v) => setDocs((x) => ({ ...x, packingSlipNote: v }))}
+              starter={STARTER_TEXTS.packingSlipNote}
+              error={docSave.errors.packingSlipNote}
+            />
+          </div>
+        </Section>
+        {canEdit ? <SaveBar saving={docSave.saving} /> : null}
       </Form>
     </div>
   );
@@ -760,6 +891,7 @@ export function PaymentsSection({ s, canEdit }: Props) {
     branch: p.bank?.branch ?? '',
     instructions: p.instructions ?? '',
   });
+  const [methods, setMethods] = useState<Set<PaymentMethod>>(new Set(p.acceptedMethods));
   const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
   const { save, errors, saving } = useSaveSection('payment');
   const anyBank = [f.accountName, f.accountNumber, f.ifsc, f.bankName].some((v) => v.trim());
@@ -771,6 +903,7 @@ export function PaymentsSection({ s, canEdit }: Props) {
           upiId: opt(f.upiId),
           upiPayeeName: opt(f.upiPayeeName),
           showUpiQrOnStorefront: f.showUpiQrOnStorefront,
+          acceptedMethods: PAYMENT_METHODS.filter((m) => methods.has(m)),
           bank: anyBank
             ? {
                 accountName: f.accountName,
@@ -785,6 +918,32 @@ export function PaymentsSection({ s, canEdit }: Props) {
       }
     >
       <Section
+        title="Payment methods you accept"
+        description="Staff can record only these; the website shows them to customers."
+      >
+        <div className="flex flex-wrap gap-4">
+          {PAYMENT_METHODS.map((m) => (
+            <label key={m} className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={methods.has(m)}
+                onCheckedChange={(v) =>
+                  setMethods((cur) => {
+                    const n = new Set(cur);
+                    if (v === true) n.add(m);
+                    else n.delete(m);
+                    return n;
+                  })
+                }
+              />
+              {METHOD_LABEL[m]}
+            </label>
+          ))}
+        </div>
+        {errors.acceptedMethods ? (
+          <p className="text-destructive mt-2 text-xs">{errors.acceptedMethods}</p>
+        ) : null}
+      </Section>
+      <Section
         title="UPI"
         description="Shown in WhatsApp messages, on invoices (as a QR for the amount due) and on the website."
       >
@@ -796,7 +955,7 @@ export function PaymentsSection({ s, canEdit }: Props) {
               value={f.upiId}
               onChange={set('upiId')}
               error={errors.upiId}
-              placeholder="sakthimaan@okaxis"
+              placeholder="name@bank"
             />
             <TextField
               id="p-payee"
@@ -870,8 +1029,7 @@ export function PaymentsSection({ s, canEdit }: Props) {
           aria-label="Payment instructions"
           rows={3}
           value={f.instructions}
-          placeholder="After paying, send the screenshot to our WhatsApp number with your order number."
-          onChange={(e) => setF((x) => ({ ...x, instructions: e.target.value }))}
+          onChange={(e) => set('instructions')(e.target.value)}
         />
       </Section>
       {canEdit ? <SaveBar saving={saving} /> : null}
@@ -896,14 +1054,14 @@ export function OrdersSection({ s, canEdit }: Props) {
     <Form
       canEdit={canEdit}
       onSubmit={() => {
-        const min = parseRupees(f.minOrder);
+        const min = f.minOrder.trim() ? parseRupees(f.minOrder) : 0;
         if (min === null) return setErrors({ defaultMinOrderValue: 'Enter an amount' });
         void save(s.version, {
           numberPrefix: f.numberPrefix,
           defaultMinOrderValue: min,
           packingChargePct: Number(f.packingChargePct || 0),
           autoCancelUnpaidCheckoutHours: Number(f.autoCancel),
-          defaultLowStockThreshold: Number(f.lowStock),
+          defaultLowStockThreshold: Number(f.lowStock || 0),
         });
       }}
     >
@@ -928,7 +1086,7 @@ export function OrdersSection({ s, canEdit }: Props) {
             value={f.minOrder}
             onChange={set('minOrder')}
             error={errors.defaultMinOrderValue}
-            hint="Used where a zone, state or city doesn't set its own"
+            hint="0 or empty = no minimum. Zones, states and cities can set their own."
           />
           <TextField
             id="o-packing"
@@ -959,7 +1117,7 @@ export function OrdersSection({ s, canEdit }: Props) {
           value={f.lowStock}
           onChange={set('lowStock')}
           error={errors.defaultLowStockThreshold}
-          hint="Products without their own alert level use this"
+          hint="Given to new products that don't set their own. 0 = no alert."
         />
       </Section>
       {canEdit ? <SaveBar saving={saving} /> : null}

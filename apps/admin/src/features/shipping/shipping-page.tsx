@@ -38,6 +38,7 @@ import { PHONE_SHEET, cn } from '@/lib/utils';
 import {
   useCities,
   usePartners,
+  useRuntimeSettings,
   useShippingMutations,
   useStates,
   useZones,
@@ -749,6 +750,7 @@ function ZoneDialog({ zone, onClose }: { zone: ZoneDto | null; onClose: () => vo
 
 function CitiesTab({ canManage }: { canManage: boolean }) {
   const [stateCode, setStateCode] = useState<string>('all');
+  const runtime = useRuntimeSettings().data;
   const cities = useCities(stateCode === 'all' ? undefined : stateCode);
   const { removeCity } = useShippingMutations();
   const [editing, setEditing] = useState<CityDto | 'new' | null>(null);
@@ -828,7 +830,9 @@ function CitiesTab({ canManage }: { canManage: boolean }) {
       {editing ? (
         <CityDialog
           city={editing === 'new' ? null : editing}
-          defaultState={(stateCode === 'all' ? 'TN' : stateCode) as IndianStateCode}
+          defaultState={
+            (stateCode === 'all' ? (runtime?.sellerStateCode ?? '') : stateCode) as IndianStateCode | ''
+          }
           onClose={() => setEditing(null)}
         />
       ) : null}
@@ -856,7 +860,7 @@ function CityDialog({
   onClose,
 }: {
   city: CityDto | null;
-  defaultState: IndianStateCode;
+  defaultState: IndianStateCode | '';
   onClose: () => void;
 }) {
   const { saveCity } = useShippingMutations();
@@ -869,6 +873,7 @@ function CityDialog({
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const save = async () => {
+    if (!f.stateCode) return setErrors({ stateCode: 'Choose the state' });
     const min = f.min.trim() ? parseRupees(f.min) : null;
     if (f.min.trim() && min === null) return setErrors({ minOrderValue: 'Enter an amount or leave blank' });
     try {
@@ -899,7 +904,7 @@ function CityDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
-          <Field label="State" htmlFor="ci-state">
+          <Field label="State" htmlFor="ci-state" error={errors.stateCode}>
             <Select
               value={f.stateCode}
               onValueChange={(v) => setF((x) => ({ ...x, stateCode: v as IndianStateCode }))}

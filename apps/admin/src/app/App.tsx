@@ -10,6 +10,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { ForgotPasswordPage, LoginPage, ResetPasswordPage } from '@/features/auth/auth-pages';
 import { ApiError } from '@/lib/api';
 import { bootstrapSession } from '@/lib/session';
+import { BrandingTitle } from '@/lib/branding';
 import { ThemeProvider } from '@/lib/theme';
 
 // Each screen is its own chunk: staff often work on phones over mobile data.
@@ -275,6 +276,7 @@ export function App() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
+          <BrandingTitle />
           <RouterProvider router={router} future={{ v7_startTransition: true }} />
           <Toaster richColors closeButton position="top-right" />
         </TooltipProvider>

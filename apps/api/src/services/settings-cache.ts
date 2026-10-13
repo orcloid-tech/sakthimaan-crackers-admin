@@ -1,12 +1,14 @@
-import {
-  DEFAULT_HSN,
-  DEFAULT_SELLER_STATE_CODE,
-  DEFAULT_TAX_RATE,
-  type IndianStateCode,
-} from '@sakthimaan/shared';
+import type { IndianStateCode } from '@sakthimaan/shared';
 import { SETTINGS_ID, SettingsModel, type Settings } from '../models/index.js';
 
 const TTL_MS = 30_000;
+
+/** Store tax defaults as saved in Settings; `null` = not entered yet (no code fallback). */
+export interface TaxDefaults {
+  hsn: string | null;
+  taxRate: number | null;
+  sellerStateCode: IndianStateCode | null;
+}
 
 /**
  * Short-lived in-process cache of the settings singleton (read on most catalogue and
@@ -36,16 +38,17 @@ export class SettingsCache {
     this.loadedAt = 0;
   }
 
-  async taxDefaults(): Promise<{ hsn: string; taxRate: number; sellerStateCode: IndianStateCode }> {
+  async taxDefaults(): Promise<TaxDefaults> {
     const s = await this.get();
     return {
-      hsn: s?.tax?.defaultHsn ?? DEFAULT_HSN,
-      taxRate: s?.tax?.defaultTaxRate ?? DEFAULT_TAX_RATE,
-      sellerStateCode: s?.tax?.sellerStateCode ?? DEFAULT_SELLER_STATE_CODE,
+      hsn: s?.tax?.defaultHsn ?? null,
+      taxRate: s?.tax?.defaultTaxRate ?? null,
+      sellerStateCode: s?.tax?.sellerStateCode ?? null,
     };
   }
 
-  async lowStockDefault(): Promise<number> {
-    return (await this.get())?.inventory?.defaultLowStockThreshold ?? 10;
+  /** Alert level for new products; null = none set (no low-stock alert until one is). */
+  async lowStockDefault(): Promise<number | null> {
+    return (await this.get())?.inventory?.defaultLowStockThreshold ?? null;
   }
 }

@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useDebounced } from '@/hooks/use-debounced';
 import { ApiError, errorMessage } from '@/lib/api';
 import { money } from '@/lib/format';
+import { useRuntimeSettings } from '../settings/api';
 import { useCustomerLookup, useOrderMutations, usePricingPreview, type OrderCreateBody } from './api';
 import { LineEditor, TotalsBlock, type DraftLine } from './order-bits';
 
@@ -41,7 +42,7 @@ const EMPTY: FormState = {
   line2: '',
   landmark: '',
   city: '',
-  stateCode: 'TN',
+  stateCode: '',
   pincode: '',
   source: 'phone',
   notes: '',
@@ -80,7 +81,14 @@ export function PreviewPanel({
       {lines.length === 0 ? (
         <p className="text-muted-foreground text-sm">Add products to see the total.</p>
       ) : preview.isError ? (
-        <p className="text-destructive text-sm">{errorMessage(preview.error)}</p>
+        <p className="text-destructive text-sm">
+          {errorMessage(preview.error)}{' '}
+          {preview.error instanceof ApiError && preview.error.code === 'SETUP_INCOMPLETE' ? (
+            <Link to="/settings?tab=billing" className="underline underline-offset-4">
+              Open Settings
+            </Link>
+          ) : null}
+        </p>
       ) : !p ? (
         <div className="grid gap-2">
           <Skeleton className="h-4 w-full" />
@@ -122,7 +130,18 @@ export function OrderFormPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   // "New order" from a customer's profile passes their number; the lookup fills in the rest.
-  const [f, setF] = useState<FormState>(() => ({ ...EMPTY, phone: params.get('phone') ?? '' }));
+  const runtime = useRuntimeSettings().data;
+  const [f, setF] = useState<FormState>(() => ({
+    ...EMPTY,
+    phone: params.get('phone') ?? '',
+    stateCode: runtime?.sellerStateCode ?? '',
+  }));
+  // Settings may arrive after the first render: use the store's state until one is picked.
+  const [stateTouched, setStateTouched] = useState(false);
+  if (!stateTouched && !f.stateCode && runtime?.sellerStateCode) {
+    setF((s) => ({ ...s, stateCode: runtime.sellerStateCode ?? '' }));
+    setStateTouched(true);
+  }
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<ReturnType<typeof usePricingPreview>['data']>();

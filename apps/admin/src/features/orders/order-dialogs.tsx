@@ -27,6 +27,7 @@ import { ApiError, errorMessage } from '@/lib/api';
 import { money, number, parseRupees, rupeesText } from '@/lib/format';
 import { PHONE_SHEET, cn } from '@/lib/utils';
 import { ProductPicker } from '../products/product-picker';
+import { useRuntimeSettings } from '../settings/api';
 import { useOrderMutations, useTransportPartners } from './api';
 import { METHOD_LABEL } from './order-bits';
 
@@ -50,7 +51,8 @@ export function PaymentDialog({ order, onClose }: { order: OrderDto; onClose: ()
   const { recordPayment } = useOrderMutations(order.id);
   const [kind, setKind] = useState<'payment' | 'refund'>('payment');
   const [amount, setAmount] = useState(rupeesText(Math.max(0, order.balanceDue)));
-  const [method, setMethod] = useState<PaymentMethod>('upi');
+  const accepted = useRuntimeSettings().data?.acceptedMethods ?? [...PAYMENT_METHODS];
+  const [method, setMethod] = useState<PaymentMethod>(accepted[0] ?? 'upi');
   const [reference, setReference] = useState('');
   const [paidAt, setPaidAt] = useState(localNow());
   const [notes, setNotes] = useState('');
@@ -126,7 +128,7 @@ export function PaymentDialog({ order, onClose }: { order: OrderDto; onClose: ()
             />
           </Field>
           <div role="radiogroup" aria-label="Method" className="grid grid-cols-3 gap-2">
-            {PAYMENT_METHODS.map((m) => (
+            {accepted.map((m) => (
               <Button
                 key={m}
                 type="button"

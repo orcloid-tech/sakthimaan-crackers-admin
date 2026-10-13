@@ -2,7 +2,6 @@ import { useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Sparkles } from 'lucide-react';
 import { z } from 'zod';
 import {
   emailSchema,
@@ -15,6 +14,7 @@ import { Field, Spinner } from '@/components/common';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ApiError, authCall, errorMessage } from '@/lib/api';
+import { BrandMark, useBranding } from '@/lib/branding';
 import { applySession } from '@/lib/session';
 
 function AuthCard({
@@ -26,14 +26,13 @@ function AuthCard({
   description?: string;
   children: ReactNode;
 }) {
+  const brand = useBranding().data;
   return (
     <div className="bg-muted/40 grid min-h-svh place-items-center p-4">
       <div className="bg-card w-full max-w-sm rounded-2xl border p-6 shadow-sm sm:p-8">
         <div className="mb-6 flex items-center gap-2">
-          <span className="bg-primary text-primary-foreground grid size-9 place-items-center rounded-lg">
-            <Sparkles className="size-4" aria-hidden />
-          </span>
-          <span className="font-semibold">Sakthimaan Crackers</span>
+          <BrandMark logoUrl={brand?.logoUrl} size={36} />
+          <span className="font-semibold">{brand?.storeName ?? 'Store admin'}</span>
         </div>
         <h1 className="text-xl font-semibold">{title}</h1>
         {description ? <p className="text-muted-foreground mt-1 text-sm">{description}</p> : null}
